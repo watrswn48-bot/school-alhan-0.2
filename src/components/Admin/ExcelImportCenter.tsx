@@ -130,10 +130,10 @@ export const ExcelImportCenter: React.FC = () => {
         addError('كود الطالب', codeVal, 'يجب اختيار عمود كود الطالب وإدخال كود في كل صف.');
       } else {
         const codeKey = normalize(codeVal);
-        if (fileCodesSet.has(codeKey)) {
+        if (importType === 'students' && fileCodesSet.has(codeKey)) {
           addError('كود الطالب', codeVal, `كود الطالب (${codeVal}) مكرر داخل الملف.`);
           duplicateCount++;
-        } else fileCodesSet.add(codeKey);
+        } else if (importType === 'students') fileCodesSet.add(codeKey);
 
         if (importType === 'students' && existingCodes.has(codeKey)) {
           addError('كود الطالب', codeVal, `كود الطالب (${codeVal}) مسجل بالفعل في قاعدة البيانات.`);
@@ -198,8 +198,10 @@ export const ExcelImportCenter: React.FC = () => {
 
         if (student && examSubject && scoreHeader && Number.isFinite(score)) {
           const key = `${student.id}:${examSubject.id}`;
-          if (resultKeys.has(key)) addError('الدرجة', score, 'يوجد أكثر من سجل لنفس الطالب والمادة والامتحان داخل الملف.');
-          else resultKeys.add(key);
+          if (resultKeys.has(key)) {
+            addError('الدرجة', score, 'يوجد أكثر من سجل لنفس الطالب والمادة والامتحان داخل الملف.');
+            duplicateCount++;
+          } else resultKeys.add(key);
         }
       }
 
