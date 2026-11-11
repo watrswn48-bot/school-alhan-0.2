@@ -132,3 +132,44 @@ USING (
       AND private.has_admin_permission('manage_results', e.academic_year_id, e.stage_id, e.grade_id, se.class_id, e.term_id, es.subject_id)
   )
 );
+
+-- Keep one UPDATE policy while allowing managers to save drafts and super admins to publish.
+DROP POLICY IF EXISTS "Results managers update drafts" ON public.results;
+DROP POLICY IF EXISTS "Super admins publish results" ON public.results;
+
+CREATE POLICY "Scoped admins update result publication"
+ON public.results FOR UPDATE TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.exam_subjects es
+    JOIN public.exams e ON e.id = es.exam_id
+    JOIN public.student_enrollments se
+      ON se.student_id = results.student_id
+     AND se.academic_year_id = e.academic_year_id
+    WHERE es.id = results.exam_subject_id
+      AND (es.class_id IS NULL OR es.class_id = se.class_id)
+      AND (e.class_id IS NULL OR e.class_id = se.class_id)
+      AND (
+        private.has_admin_permission('manage_results', e.academic_year_id, e.stage_id, e.grade_id, se.class_id, e.term_id, es.subject_id)
+        OR private.has_admin_permission('publish_results', e.academic_year_id, e.stage_id, e.grade_id, se.class_id, e.term_id, es.subject_id)
+      )
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.exam_subjects es
+    JOIN public.exams e ON e.id = es.exam_id
+    JOIN public.student_enrollments se
+      ON se.student_id = results.student_id
+     AND se.academic_year_id = e.academic_year_id
+    WHERE es.id = results.exam_subject_id
+      AND (es.class_id IS NULL OR es.class_id = se.class_id)
+      AND (e.class_id IS NULL OR e.class_id = se.class_id)
+      AND (
+        (is_published IS FALSE AND private.has_admin_permission('manage_results', e.academic_year_id, e.stage_id, e.grade_id, se.class_id, e.term_id, es.subject_id))
+        OR private.has_admin_permission('publish_results', e.academic_year_id, e.stage_id, e.grade_id, se.class_id, e.term_id, es.subject_id)
+      )
+  )
+);
