@@ -78,7 +78,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     setFormStageId(firstStage);
     const firstGrade = grades.find(g => g.stage_id === firstStage)?.id || '';
     setFormGradeId(firstGrade);
-    const firstClass = classes.find(c => c.grade_id === firstGrade)?.id || classes[0]?.id || '';
+    const firstClass = classes.find(c => c.grade_id === firstGrade && c.academic_year_id === activeYear)?.id || '';
     setFormClassId(firstClass);
     setModalError(null);
     setIsModalOpen(true);
@@ -109,17 +109,25 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     const availableGrades = grades.filter(g => g.stage_id === newStageId);
     if (availableGrades.length > 0) {
       setFormGradeId(availableGrades[0].id);
-      const availableClasses = classes.filter(c => c.grade_id === availableGrades[0].id);
+      const availableClasses = classes.filter(c => c.grade_id === availableGrades[0].id && c.academic_year_id === formYearId);
       if (availableClasses.length > 0) setFormClassId(availableClasses[0].id);
     }
   };
 
   const handleGradeChange = (newGradeId: string) => {
     setFormGradeId(newGradeId);
-    const availableClasses = classes.filter(c => c.grade_id === newGradeId);
+    const availableClasses = classes.filter(c => c.grade_id === newGradeId && c.academic_year_id === formYearId);
     if (availableClasses.length > 0) {
       setFormClassId(availableClasses[0].id);
     }
+  };
+
+  const handleYearChange = (newYearId: string) => {
+    setFormYearId(newYearId);
+    const matchingClass = classes.find(item =>
+      item.grade_id === formGradeId && item.academic_year_id === newYearId
+    );
+    setFormClassId(matchingClass?.id || '');
   };
 
   const handleSaveStudent = async (e: React.FormEvent) => {
@@ -128,8 +136,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     const code = formCode.trim();
     if (!code) { setModalError('يجب إدخال كود الطالب يدوياً.'); return; }
     if (!formName.trim()) { setModalError('يرجى إدخال اسم الطالب بالكامل.'); return; }
-    if (!formYearId || !formStageId || !formGradeId || !formClassId) {
-      setModalError('اختر العام والمستوى والسنة والفصل قبل حفظ الطالب.');
+    const selectedGrade = grades.find(grade => grade.id === formGradeId && grade.stage_id === formStageId);
+    const selectedClass = classes.find(cls => cls.id === formClassId && cls.grade_id === formGradeId && cls.academic_year_id === formYearId);
+    if (!formYearId || !selectedGrade || !selectedClass) {
+      setModalError('اختر العام والمستوى والسنة والفصل التابعين لبعضهم من قاعدة البيانات.');
       return;
     }
 
@@ -439,7 +449,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                   <label className="block font-bold text-slate-700 mb-1">العام الدراسي</label>
                   <select
                     value={formYearId}
-                    onChange={(e) => setFormYearId(e.target.value)}
+                    onChange={(e) => handleYearChange(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none"
                   >
                     {years.map(y => (
@@ -483,7 +493,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                     onChange={(e) => setFormClassId(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none"
                   >
-                    {classes.filter(c => c.grade_id === formGradeId).map(c => (
+                    {classes.filter(c => c.grade_id === formGradeId && c.academic_year_id === formYearId).map(c => (
                       <option key={c.id} value={c.id}>
                         {c.name} {c.term === 'term2' ? '(الترم الثاني)' : c.term === 'both' ? '(سنوي)' : '(الترم الأول)'}
                       </option>
