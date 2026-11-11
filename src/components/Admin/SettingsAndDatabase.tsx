@@ -232,6 +232,27 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
       return;
     }
 
+    const selectedClass = scopeOptions.classes.find(item => item.id === scopeClassId);
+    const selectedTerm = scopeOptions.terms.find(item => item.id === scopeTermId);
+    if (newAdminRole !== 'content_manager' && !selectedClass) {
+      setAdminFormError('اختر فصلًا محددًا قبل إنشاء حساب المسؤول حتى لا يحصل على صلاحية عامة.');
+      return;
+    }
+    if (newAdminRole !== 'admin' && newAdminRole !== 'content_manager') {
+      if (!selectedTerm || !scopeSubjectId) {
+        setAdminFormError('مسؤول النتائج والمعلم يجب تحديد الفصل والترم والمادة لهم.');
+        return;
+      }
+      if (
+        selectedTerm.academic_year_id !== selectedClass?.academic_year_id ||
+        selectedTerm.grade_id !== selectedClass?.grade_id ||
+        (selectedClass?.term_id && selectedClass.term_id !== selectedTerm.id)
+      ) {
+        setAdminFormError('الترم المختار لا يتبع الفصل والسنة المحددين.');
+        return;
+      }
+    }
+
     const supabase = getSupabaseClient();
     if (!supabase) {
       setAdminFormError('تعذر الاتصال بقاعدة بيانات المدرسة.');
@@ -243,14 +264,19 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
         permissions: newAdminRole === 'content_manager'
           ? [{ permission_key: 'manage_content' }]
           : newAdminRole === 'admin'
-            ? [{ permission_key: 'manage_students', class_id: scopeClassId || null }]
+            ? [{
+                permission_key: 'manage_students',
+                academic_year_id: selectedClass?.academic_year_id,
+                grade_id: selectedClass?.grade_id,
+                class_id: selectedClass?.id,
+              }]
             : [{
                 permission_key: 'manage_results',
-                academic_year_id: scopeOptions.classes.find(c => c.id === scopeClassId)?.academic_year_id || null,
-                grade_id: scopeOptions.classes.find(c => c.id === scopeClassId)?.grade_id || null,
-                class_id: scopeClassId || null,
-                term_id: scopeTermId || null,
-                subject_id: scopeSubjectId || null,
+                academic_year_id: selectedClass?.academic_year_id,
+                grade_id: selectedClass?.grade_id,
+                class_id: selectedClass?.id,
+                term_id: selectedTerm?.id,
+                subject_id: scopeSubjectId,
               }],
       },
     });
@@ -859,7 +885,7 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
                       {
                         role: 'results_manager' as UserRole,
                         label: 'مسؤول الكنترول والنتائج',
-                        desc: 'إنشاء الامتحانات، رصد الدرجات، نشر واعتماد النتائج والشهادات',
+                        desc: 'رصد درجات المواد المحددة فقط؛ اعتماد ونشر النتائج من اختصاص المسؤول الرئيسي',
                         border: 'hover:border-emerald-400'
                       },
                       {
@@ -871,7 +897,7 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
                       {
                         role: 'teacher' as UserRole,
                         label: 'معلم ألحان / طقس كنسي',
-                        desc: 'تقييم الطلاب وتسليم الألحان والمردات الكنسية',
+                        desc: 'رصد تقييمات المواد والفصول المحددة فقط دون صلاحية اعتماد النتائج',
                         border: 'hover:border-amber-400'
                       },
                       {
@@ -916,9 +942,13 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
                     </div>
                     <div>
                       <label className="block font-bold mb-1">الترم المسموح به</label>
-                      <select value={scopeTermId} onChange={e => setScopeTermId(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 bg-white">
-                        <option value="">كل ترمات الفصل</option>
-                        {scopeOptions.terms.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      <select required={newAdminRole !== 'admin'} value={scopeTermId} onChange={e => setScopeTermId(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 bg-white">
+                        <option value="">اختر الترم</option>
+                        {scopeOptions.terms.filter(item => {
+                          const selected = scopeOptions.classes.find(c => c.id === scopeClassId);
+                          return selected && item.academic_year_id === selected.academic_year_id &&
+                            item.grade_id === selected.grade_id && (!selected.term_id || item.id === selected.term_id);
+                        }).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                       </select>
                     </div>
                     {newAdminRole !== 'admin' && <div>
