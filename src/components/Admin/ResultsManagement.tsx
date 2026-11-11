@@ -138,6 +138,14 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
 
   const handlePublishResults = async () => {
     if (!canPublishResults || !selectedExam || !examSubjects.length) return;
+    if (!allAssignedStudents.length) {
+      setStatusMessage({ type: 'error', text: 'لا يوجد طلاب مقيدون في نطاق هذا الامتحان.' });
+      return;
+    }
+    if (missingScoreCount > 0) {
+      setStatusMessage({ type: 'error', text: `لا يمكن اعتماد النتائج قبل رصد جميع الدرجات. الدرجات الناقصة: ${missingScoreCount}.` });
+      return;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       setStatusMessage({ type: 'error', text: 'تعذر الاتصال بقاعدة البيانات.' });
@@ -181,10 +189,14 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
     (!selectedExam?.grade_id || enrollment.grade_id === selectedExam.grade_id) &&
     (!selectedExam?.class_id || enrollment.class_id === selectedExam.class_id)
   ).map(enrollment => enrollment.student_id));
-  const filteredStudents = students.filter(student => {
+  const allAssignedStudents = students.filter(student => student.is_active && assignedStudentIds.has(student.id));
+  const missingScoreCount = allAssignedStudents.reduce((missing, student) =>
+    missing + examSubjects.filter(es => !results.some(result => result.student_id === student.id && result.exam_subject_id === es.id)).length,
+    0
+  );
+  const filteredStudents = allAssignedStudents.filter(student => {
     const q = searchQuery.toLowerCase();
-    return assignedStudentIds.has(student.id) &&
-      (student.full_name.toLowerCase().includes(q) || student.student_code.toLowerCase().includes(q));
+    return student.full_name.toLowerCase().includes(q) || student.student_code.toLowerCase().includes(q);
   });
 
   const totalMaxScore = examSubjects.reduce((acc, curr) => acc + curr.max_score, 0);
@@ -222,11 +234,11 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
           {canPublishResults && (
             <button
               onClick={handlePublishResults}
-              disabled={publishing || !selectedExam || !results.some(item => examSubjects.some(es => es.id === item.exam_subject_id))}
+              disabled={publishing || !selectedExam || !allAssignedStudents.length || missingScoreCount > 0}
               className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{publishing ? 'جارٍ الاعتماد...' : 'اعتماد ونشر للطلاب'}</span>
+              <span>{publishing ? 'جارٍ الاعتماد...' : missingScoreCount > 0 ? `درجات ناقصة (${missingScoreCount})` : 'اعتماد ونشر للطلاب'}</span>
             </button>
           )}
         </div>
