@@ -138,7 +138,7 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     setTestingConnection(true);
     setConnectionTestResult(null);
 
-    const test = await testSupabaseConnection(supabaseUrl, supabaseKey);
+    const test = await testSupabaseConnection();
     setTestingConnection(false);
     setConnectionTestResult(test);
   };
