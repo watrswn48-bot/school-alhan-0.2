@@ -117,29 +117,32 @@ export const AcademicManagement: React.FC = () => {
   };
 
   // --- Years Operations ---
-  const handleCreateYear = (e: React.FormEvent) => {
+  const handleCreateYear = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newYearName.trim()) return;
 
-    dataService.saveAcademicYear({
-      id: `year-${Date.now()}`,
-      name: newYearName.trim(),
-      start_date: newYearStart,
-      end_date: newYearEnd,
-      is_active: false,
-      created_at: new Date().toISOString()
-    });
+    try {
+      await dataService.saveAcademicYear({
+        id: `year-${Date.now()}`,
+        name: newYearName.trim(),
+        start_date: newYearStart,
+        end_date: newYearEnd,
+        is_active: false,
+        created_at: new Date().toISOString()
+      });
+    } catch (error) { showToast('تعذر إنشاء السنة الدراسية أو الترمين: ' + (error as Error).message); return; }
 
     setNewYearName('');
     refreshData();
     showToast('تمت إضافة العام الدراسي بنجاح');
   };
 
-  const handleUpdateYear = (e: React.FormEvent) => {
+  const handleUpdateYear = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingYear || !editingYear.name.trim()) return;
 
-    dataService.saveAcademicYear(editingYear);
+    try { await dataService.saveAcademicYear(editingYear); }
+    catch (error) { showToast('تعذر حفظ السنة الدراسية: ' + (error as Error).message); return; }
     setEditingYear(null);
     refreshData();
     showToast('تم تعديل بيانات العام الدراسي بنجاح');

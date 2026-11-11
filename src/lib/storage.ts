@@ -269,12 +269,33 @@ class DataService {
     return this.get<AcademicYear[]>(STORAGE_KEYS.YEARS, INITIAL_YEARS);
   }
 
-  saveAcademicYear(year: AcademicYear): void {
+  async saveAcademicYear(year: AcademicYear): Promise<void> {
     const list = this.getAcademicYears();
     const idx = list.findIndex(y => y.id === year.id);
-    if (idx >= 0) list[idx] = year;
-    else list.push(year);
+    const normalizedYear = { ...year, id: this.uuid(year.id) };
+    if (idx >= 0) list[idx] = normalizedYear;
+    else list.push(normalizedYear);
     this.set(STORAGE_KEYS.YEARS, list);
+
+    const client = getSupabaseClient();
+    if (!client) return;
+    const { error: yearError } = await client.from('academic_years').upsert(this.toDatabaseRow(STORAGE_KEYS.YEARS, normalizedYear));
+    if (yearError) throw yearError;
+
+    // Every year gets two terms for each of the eight grades.
+    const { data: grades, error: gradesError } = await client.from('grades').select('id');
+    if (gradesError) throw gradesError;
+    const termRows = (grades ?? []).flatMap((grade: any) => [
+      { academic_year_id: normalizedYear.id, grade_id: grade.id, term_number: 1, name: 'الترم الأول' },
+      { academic_year_id: normalizedYear.id, grade_id: grade.id, term_number: 2, name: 'الترم الثاني' },
+    ]);
+    if (termRows.length) {
+      const { error: termsError } = await client.from('academic_terms').upsert(termRows, {
+        onConflict: 'academic_year_id,grade_id,term_number',
+      });
+      if (termsError) throw termsError;
+    }
+    await this.refresh();
   }
 
   setActiveAcademicYear(yearId: string): void {
