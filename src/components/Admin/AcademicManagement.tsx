@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { dataService } from '../../lib/storage';
+import { getSupabaseClient } from '../../lib/supabase';
 import { AcademicYear, EducationalStage, Grade, ClassItem, Subject, SemesterTerm, ClassCategory } from '../../types/database';
 import {
   Layers,
@@ -172,18 +173,81 @@ export const AcademicManagement: React.FC = () => {
   const executeDelete = async () => {
     if (!deleteTarget) return;
     const { type, id, name, typeLabel } = deleteTarget;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      showToast('تعذر الاتصال بقاعدة البيانات للتحقق من ارتباطات السجل.', 'error');
+      return;
+    }
+
+    // Refuse to delete academic records while other records still depend on them.
+    // This avoids predictable foreign-key failures and, more importantly, protects school data.
+    const hasLinks = async (table: string, column: string): Promise<boolean> => {
+      const { count, error } = await supabase.from(table).select('id', { count: 'exact', head: true }).eq(column, id);
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    };
+
+    const references: Array<[string, string, string]> = [];
+    if (type === 'year') {
+      if (years.find(year => year.id === id)?.is_active) {
+        showToast('لا يمكن حذف العام الدراسي النشط. عيّن عاماً آخر نشطاً أولاً.', 'error');
+        return;
+      }
+      references.push(
+        ['academic_terms', 'academic_year_id', 'الترمات'],
+        ['classes', 'academic_year_id', 'الفصول'],
+        ['student_enrollments', 'academic_year_id', 'قيود الطلاب'],
+        ['exams', 'academic_year_id', 'الامتحانات'],
+        ['grading_rules', 'academic_year_id', 'قواعد التقدير'],
+        ['school_settings', 'academic_year_id', 'إعدادات المدرسة']
+      );
+    } else if (type === 'stage') {
+      references.push(
+        ['grades', 'stage_id', 'السنوات الدراسية التابعة'],
+        ['student_enrollments', 'stage_id', 'قيود الطلاب'],
+        ['exams', 'stage_id', 'الامتحانات']
+      );
+    } else if (type === 'grade') {
+      references.push(
+        ['academic_terms', 'grade_id', 'الترمات'],
+        ['classes', 'grade_id', 'الفصول'],
+        ['student_enrollments', 'grade_id', 'قيود الطلاب'],
+        ['exams', 'grade_id', 'الامتحانات']
+      );
+    } else if (type === 'class') {
+      references.push(
+        ['student_enrollments', 'class_id', 'قيود الطلاب'],
+        ['exams', 'class_id', 'الامتحانات'],
+        ['exam_subjects', 'class_id', 'مواد الامتحانات'],
+        ['admin_permissions', 'class_id', 'صلاحيات المسؤولين']
+      );
+    } else if (type === 'subject') {
+      references.push(
+        ['exam_subjects', 'subject_id', 'مواد الامتحانات'],
+        ['admin_permissions', 'subject_id', 'صلاحيات المسؤولين']
+      );
+    }
+
+    try {
+      const linked = await Promise.all(references.map(async ([table, column, label]) =>
+        (await hasLinks(table, column)) ? label : null
+      ));
+      const blockers = linked.filter((label): label is string => Boolean(label));
+      if (blockers.length) {
+        showToast(`لا يمكن حذف ${typeLabel} لأنه مرتبط بسجلات موجودة: ${blockers.join('، ')}. انقل أو عالج الارتباطات أولاً.`, 'error');
+        setDeleteTarget(null);
+        return;
+      }
+    } catch (error) {
+      showToast('تعذر التحقق من ارتباطات السجل؛ لم يتم تنفيذ أي حذف. ' + (error as Error).message, 'error');
+      return;
+    }
 
     if (type === 'year') {
       dataService.deleteAcademicYear(id);
     } else if (type === 'stage') {
-      const stageGrades = grades.filter(g => g.stage_id === id);
-      stageGrades.forEach(g => {
-        classes.filter(c => c.grade_id === g.id).forEach(c => dataService.deleteClass(c.id));
-        dataService.deleteGrade(g.id);
-      });
       dataService.deleteStage(id);
     } else if (type === 'grade') {
-      classes.filter(c => c.grade_id === id).forEach(c => dataService.deleteClass(c.id));
       dataService.deleteGrade(id);
     } else if (type === 'class') {
       dataService.deleteClass(id);
