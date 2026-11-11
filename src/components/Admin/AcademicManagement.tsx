@@ -1370,7 +1370,7 @@ export const AcademicManagement: React.FC = () => {
                   <input
                     type="date"
                     required
-                    value={editingYear.start_date}
+                    value={editingYear.start_date || ''}
                     onChange={(e) => setEditingYear({ ...editingYear, start_date: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
                   />
@@ -1380,7 +1380,7 @@ export const AcademicManagement: React.FC = () => {
                   <input
                     type="date"
                     required
-                    value={editingYear.end_date}
+                    value={editingYear.end_date || ''}
                     onChange={(e) => setEditingYear({ ...editingYear, end_date: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
                   />

@@ -226,7 +226,7 @@ export const ExcelImportCenter: React.FC = () => {
 
     let successful = 0;
     let failed = 0;
-    const activeYear = dataService.getAcademicYears().find(y => y.is_active)?.id || 'year-2025-2026';
+    const activeYear = dataService.getAcademicYears().find(y => y.is_active)?.id || '';
     const stages = dataService.getStages();
     const grades = dataService.getGrades();
     const classes = dataService.getClasses();

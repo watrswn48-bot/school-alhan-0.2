@@ -1,3 +1,4 @@
+import { getSupabaseClient } from './supabase';
 import {
   AcademicYear,
   EducationalStage,
@@ -34,449 +35,221 @@ const STORAGE_KEYS = {
   ACTIVE_ADMIN: 'etchrompi_active_admin',
 };
 
-// ==========================================
-// INITIAL DATA
-// ==========================================
-
+// Database-backed defaults. No demo students, grades, exams, results, or admin passwords.
 export const INITIAL_SETTINGS: SchoolSettings = {
-  id: 'settings-1',
+  id: '',
   school_name: 'مدرسة تي اتشرومبي للألحان',
-  church_name: 'كنيسة السيدة العذراء مريم والآباء الرسل ومارمرقس',
-  parish_name: 'سكينة - الإسكندرية',
-  dean_name: 'القمص متى زكريا والآباء كهنة الكنيسة',
-  spiritual_supervisor: 'لجنة المرتلين وخدام وخادمات الألحان',
-  phone_number: '01223456789',
-  whatsapp_number: '01012345678',
-  email: 'info@t-etchrompi-school.org',
-  address: 'شارع الكنيسة، عزبة سكينة، المنتزه، الإسكندرية',
+  church_name: '',
+  parish_name: '',
+  dean_name: '',
+  spiritual_supervisor: '',
+  phone_number: '',
+  whatsapp_number: '',
+  email: '',
+  address: '',
   logo_url: '',
-  facebook_url: 'https://facebook.com',
-  youtube_url: 'https://youtube.com',
-  announcement_banner: 'مرحباً بكم في العام الدراسي 2025 - 2026! باب التقدم والامتحانات متاح الآن.',
-  show_banner: true,
-  results_disclaimer: 'تنبيه هام: هذه النتيجة استرشادية رسمية صادرة من إدارة المدرسة. لأي مراجعة أو تظلم يرجى التواصل مع مسؤول الكنترول بالكنسية.',
-  academic_year_id: 'year-2025-2026',
+  facebook_url: '',
+  youtube_url: '',
+  announcement_banner: '',
+  show_banner: false,
+  results_disclaimer: 'النتائج المعروضة هي النتائج التي اعتمدتها إدارة المدرسة ونشرتها.',
+  academic_year_id: '',
+  about_text: '',
   updated_at: new Date().toISOString(),
 };
 
-export const INITIAL_YEARS: AcademicYear[] = [
-  {
-    id: 'year-2025-2026',
-    name: '2025 - 2026',
-    start_date: '2025-09-15',
-    end_date: '2026-06-30',
-    is_active: true,
-    created_at: '2025-09-01T00:00:00.000Z'
-  },
-  {
-    id: 'year-2024-2025',
-    name: '2024 - 2025',
-    start_date: '2024-09-15',
-    end_date: '2025-06-30',
-    is_active: false,
-    created_at: '2024-09-01T00:00:00.000Z'
-  }
-];
-
-export const INITIAL_STAGES: EducationalStage[] = [
-  {
-    id: 'stage-level-1',
-    name: 'المستوى الأول (٤ سنوات دراسية)',
-    description: 'المستوى التأسيسي لدراسة الألحان الكنسية، الطقس الباسيلي، قراءة اللغة القبطية ومبادئ العقيدة (مقسم إلى ٤ سنوات دراسية، كل سنة ترمين).',
-    display_order: 1
-  },
-  {
-    id: 'stage-level-2',
-    name: 'المستوى الثاني (٤ سنوات دراسية)',
-    description: 'المستوى المتقدم والتخصصي للألحان الطويلة، التسبحة السنوية والكيهكية، طقس الأعياد وتأهيل قادة خوارس الشمامسة (مقسم إلى ٤ سنوات دراسية، كل سنة ترمين).',
-    display_order: 2
-  }
-];
-
-export const INITIAL_GRADES: Grade[] = [
-  // المستوى الأول (4 سنين دراسية)
-  { id: 'grade-lvl1-yr1', stage_id: 'stage-level-1', name: 'السنة الأولى - المستوى الأول', display_order: 1 },
-  { id: 'grade-lvl1-yr2', stage_id: 'stage-level-1', name: 'السنة الثانية - المستوى الأول', display_order: 2 },
-  { id: 'grade-lvl1-yr3', stage_id: 'stage-level-1', name: 'السنة الثالثة - المستوى الأول', display_order: 3 },
-  { id: 'grade-lvl1-yr4', stage_id: 'stage-level-1', name: 'السنة الرابعة - المستوى الأول', display_order: 4 },
-
-  // المستوى الثاني (4 سنين دراسية)
-  { id: 'grade-lvl2-yr1', stage_id: 'stage-level-2', name: 'السنة الأولى - المستوى الثاني', display_order: 5 },
-  { id: 'grade-lvl2-yr2', stage_id: 'stage-level-2', name: 'السنة الثانية - المستوى الثاني', display_order: 6 },
-  { id: 'grade-lvl2-yr3', stage_id: 'stage-level-2', name: 'السنة الثالثة - المستوى الثاني', display_order: 7 },
-  { id: 'grade-lvl2-yr4', stage_id: 'stage-level-2', name: 'السنة الرابعة - المستوى الثاني', display_order: 8 },
-];
-
-export const INITIAL_CLASSES: ClassItem[] = [
-  // ==========================================
-  // فصول المستوى الأول - السنة الأولى (مقسمة للـ 5 فئات × ترمين)
-  // ==========================================
-  // 1. كيجي
-  { id: 'class-l1-y1-t1-kg', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل براعم الملاك ميخائيل (كيجي)', term: 'term1', category: 'kg' },
-  { id: 'class-l1-y1-t2-kg', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل براعم الملاك ميخائيل (كيجي)', term: 'term2', category: 'kg' },
-
-  // 2. أولى وتانية
-  { id: 'class-l1-y1-t1-g12', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد مارجرجس (أولى وتانية)', term: 'term1', category: 'grade_1_2' },
-  { id: 'class-l1-y1-t2-g12', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد مارجرجس (أولى وتانية)', term: 'term2', category: 'grade_1_2' },
-
-  // 3. تالتة ورابعة
-  { id: 'class-l1-y1-t1-g34', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس أثناسيوس الرسولي (تالتة ورابعة)', term: 'term1', category: 'grade_3_4' },
-  { id: 'class-l1-y1-t2-g34', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس أثناسيوس الرسولي (تالتة ورابعة)', term: 'term2', category: 'grade_3_4' },
-
-  // 4. خامسة وستة
-  { id: 'class-l1-y1-t1-g56', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس ديديموس الضرير (خامسة وستة)', term: 'term1', category: 'grade_5_6' },
-  { id: 'class-l1-y1-t2-g56', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس ديديموس الضرير (خامسة وستة)', term: 'term2', category: 'grade_5_6' },
-
-  // 5. إعدادي وثانوي
-  { id: 'class-l1-y1-t1-prep-sec', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد العظيم مارمرقس (إعدادي وثانوي)', term: 'term1', category: 'prep_sec' },
-  { id: 'class-l1-y1-t2-prep-sec', grade_id: 'grade-lvl1-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد العظيم مارمرقس (إعدادي وثانوي)', term: 'term2', category: 'prep_sec' },
-
-  // ==========================================
-  // فصول المستوى الأول - السنة الثانية
-  // ==========================================
-  { id: 'class-l1-y2-t1-kg', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل الملاك غبريال (كيجي)', term: 'term1', category: 'kg' },
-  { id: 'class-l1-y2-t1-g12', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد فيلوباتير مرقوريوس (أولى وتانية)', term: 'term1', category: 'grade_1_2' },
-  { id: 'class-l1-y2-t2-g12', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل الشهيد فيلوباتير مرقوريوس (أولى وتانية)', term: 'term2', category: 'grade_1_2' },
-  { id: 'class-l1-y2-t1-g34', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل القديس كيرلس عمود الدين (تالتة ورابعة)', term: 'term1', category: 'grade_3_4' },
-  { id: 'class-l1-y2-t2-g34', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل القديس كيرلس عمود الدين (تالتة ورابعة)', term: 'term2', category: 'grade_3_4' },
-  { id: 'class-l1-y2-t1-g56', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل الأنبا بيشوي (خامسة وستة)', term: 'term1', category: 'grade_5_6' },
-  { id: 'class-l1-y2-t2-g56', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل الأنبا بيشوي (خامسة وستة)', term: 'term2', category: 'grade_5_6' },
-  { id: 'class-l1-y2-t1-prep-sec', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل السيدة العذراء مريم (إعدادي وثانوي)', term: 'term1', category: 'prep_sec' },
-  { id: 'class-l1-y2-t2-prep-sec', grade_id: 'grade-lvl1-yr2', academic_year_id: 'year-2025-2026', name: 'فصل السيدة العذراء مريم (إعدادي وثانوي)', term: 'term2', category: 'prep_sec' },
-
-  // ==========================================
-  // فصول المستوى الأول - السنة الثالثة والرابعة
-  // ==========================================
-  { id: 'class-l1-y3-t1-g12', grade_id: 'grade-lvl1-yr3', academic_year_id: 'year-2025-2026', name: 'فصل القديس يوحنا الحبيب (أولى وتانية)', term: 'term1', category: 'grade_1_2' },
-  { id: 'class-l1-y3-t1-g34', grade_id: 'grade-lvl1-yr3', academic_year_id: 'year-2025-2026', name: 'فصل القديس باسيليوس الكبير (تالتة ورابعة)', term: 'term1', category: 'grade_3_4' },
-  { id: 'class-l1-y3-t1-g56', grade_id: 'grade-lvl1-yr3', academic_year_id: 'year-2025-2026', name: 'فصل القديس غريغوريوس الثيؤلوغوس (خامسة وستة)', term: 'term1', category: 'grade_5_6' },
-  { id: 'class-l1-y3-t1-prep-sec', grade_id: 'grade-lvl1-yr3', academic_year_id: 'year-2025-2026', name: 'فصل القديس يوحنا المعمدان (إعدادي وثانوي)', term: 'term1', category: 'prep_sec' },
-
-  { id: 'class-l1-y4-t1-g34', grade_id: 'grade-lvl1-yr4', academic_year_id: 'year-2025-2026', name: 'فصل القديس يوحنا ذهبي الفم (تالتة ورابعة)', term: 'term1', category: 'grade_3_4' },
-  { id: 'class-l1-y4-t1-g56', grade_id: 'grade-lvl1-yr4', academic_year_id: 'year-2025-2026', name: 'فصل القديس ديديموس المرتل (خامسة وستة)', term: 'term1', category: 'grade_5_6' },
-  { id: 'class-l1-y4-t1-prep-sec', grade_id: 'grade-lvl1-yr4', academic_year_id: 'year-2025-2026', name: 'فصل القديس إسطفانوس رئيس الشمامسة (إعدادي وثانوي)', term: 'term1', category: 'prep_sec' },
-
-  // ==========================================
-  // فصول المستوى الثاني - السنة الأولى
-  // ==========================================
-  { id: 'class-l2-y1-t1-g12', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس بولس الرسول (أولى وتانية متقدم)', term: 'term1', category: 'grade_1_2' },
-  { id: 'class-l2-y1-t2-g12', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس بولس الرسول (أولى وتانية متقدم)', term: 'term2', category: 'grade_1_2' },
-  { id: 'class-l2-y1-t1-g34', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس بطرس الرسول (تالتة ورابعة متقدم)', term: 'term1', category: 'grade_3_4' },
-  { id: 'class-l2-y1-t2-g34', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس بطرس الرسول (تالتة ورابعة متقدم)', term: 'term2', category: 'grade_3_4' },
-  { id: 'class-l2-y1-t1-g56', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس يعقوب الرسول (خامسة وستة متقدم)', term: 'term1', category: 'grade_5_6' },
-  { id: 'class-l2-y1-t2-g56', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل القديس يعقوب الرسول (خامسة وستة متقدم)', term: 'term2', category: 'grade_5_6' },
-  { id: 'class-l2-y1-t1-prep-sec', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الأنبا أنطونيوس والأنبا باخوميوس (إعدادي وثانوي متقدم)', term: 'term1', category: 'prep_sec' },
-  { id: 'class-l2-y1-t2-prep-sec', grade_id: 'grade-lvl2-yr1', academic_year_id: 'year-2025-2026', name: 'فصل الأنبا أنطونيوس والأنبا باخوميوس (إعدادي وثانوي متقدم)', term: 'term2', category: 'prep_sec' },
-
-  // ==========================================
-  // فصول المستوى الثاني - السنة الثانية والثالثة والرابعة
-  // ==========================================
-  { id: 'class-l2-y2-t1-prep-sec', grade_id: 'grade-lvl2-yr2', academic_year_id: 'year-2025-2026', name: 'فصل خوارس الشمامسة والطقوس (إعدادي وثانوي تخصص)', term: 'term1', category: 'prep_sec' },
-  { id: 'class-l2-y3-t1-prep-sec', grade_id: 'grade-lvl2-yr3', academic_year_id: 'year-2025-2026', name: 'فصل المعلم إبراهيم عياد (تسبحة وأعياد كبرى)', term: 'term1', category: 'prep_sec' },
-  { id: 'class-l2-y4-t1-prep-sec', grade_id: 'grade-lvl2-yr4', academic_year_id: 'year-2025-2026', name: 'فصل قادة المذبح والخدمة (خريجو المستوى الثاني)', term: 'term1', category: 'prep_sec' }
-];
-
-export const INITIAL_SUBJECTS: Subject[] = [
-  { id: 'subj-hymns', name: 'الألحان الكنسية', description: 'حفظ ومخارج ألفاظ وهزات الألحان الكنسية الشريفة حسب طقس الكنيسة القبطية.' },
-  { id: 'subj-liturgy', name: 'الطقس الكنسي', description: 'دراسة نظام الصلوات الطقسية وترتيب الخدمة والرموز والمعاني الروحية.' },
-  { id: 'subj-coptic', name: 'اللغة القبطية', description: 'قراءة ونطق وقواعد اللغة القبطية لفهم نصوص الألحان والصلوات.' },
-  { id: 'subj-spiritual', name: 'الروحانية وتاريخ الكنيسة', description: 'سير الآباء المرتلين وتاريخ الموسيقى القبطية وحياة التكريس والخدمة.' },
-  { id: 'subj-practical', name: 'الأداء العملي والخوروس', description: 'المشاركة الفعالة في صلوات القداس والتسبحة والوقف والخشوع على المذبح.' }
-];
-
-export const INITIAL_GRADING_RULES: GradingRule[] = [
-  {
-    id: 'rule-1',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 90,
-    maximum_percentage: 100,
-    evaluation_label: 'ممتاز مرتفع مع مرتبة الشرف (Ⲛⲁⲛⲉϥ ⲉⲙⲁϣⲱ)',
-    grade_color: '#15803d',
-    is_pass: true,
-  },
-  {
-    id: 'rule-2',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 80,
-    maximum_percentage: 89.99,
-    evaluation_label: 'ممتاز (Ⲛⲁⲛⲉϥ)',
-    grade_color: '#047857',
-    is_pass: true,
-  },
-  {
-    id: 'rule-3',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 70,
-    maximum_percentage: 79.99,
-    evaluation_label: 'جيد جداً (Good Plus)',
-    grade_color: '#0284c7',
-    is_pass: true,
-  },
-  {
-    id: 'rule-4',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 60,
-    maximum_percentage: 69.99,
-    evaluation_label: 'جيد (Good)',
-    grade_color: '#d97706',
-    is_pass: true,
-  },
-  {
-    id: 'rule-5',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 50,
-    maximum_percentage: 59.99,
-    evaluation_label: 'مقبول (Pass)',
-    grade_color: '#b45309',
-    is_pass: true,
-  },
-  {
-    id: 'rule-6',
-    academic_year_id: 'year-2025-2026',
-    minimum_percentage: 0,
-    maximum_percentage: 49.99,
-    evaluation_label: 'دون المستوى / دور ثانٍ (Needs Improvement)',
-    grade_color: '#dc2626',
-    is_pass: false,
-  }
-];
-
-export const INITIAL_EXAMS: Exam[] = [
-  {
-    id: 'exam-midterm-2025',
-    name: 'امتحان منتصف العام الدراسي (الترم الأول) - ألحان وطقس',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr1',
-    term: 'term1',
-    exam_type: 'midterm',
-    exam_date: '2026-01-18',
-    is_published: true,
-    notes: 'امتحان الفصل الدراسي الأول معتمد للمستوى الأول - السنة الأولى.',
-    created_at: '2026-01-10T00:00:00.000Z'
-  },
-  {
-    id: 'exam-final-2025-sec',
-    name: 'امتحان نهاية العام الدراسي (الترم الثاني) - ألحان وقبطي',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr1',
-    term: 'term2',
-    exam_type: 'final',
-    exam_date: '2026-05-20',
-    is_published: true,
-    notes: 'امتحان الفصل الدراسي الثاني الشامل.',
-    created_at: '2026-01-15T00:00:00.000Z'
-  },
-  {
-    id: 'exam-draft-spring',
-    name: 'امتحان تقييم الألحان الكنسية - المستوى الثاني تخصص',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-2',
-    grade_id: 'grade-lvl2-yr1',
-    term: 'term1',
-    exam_type: 'practical',
-    exam_date: '2026-04-12',
-    is_published: false,
-    notes: 'تقييم في خوروس الشمامسة أمام لجنة المرتلين.',
-    created_at: '2026-02-01T00:00:00.000Z'
-  }
-];
-
-export const INITIAL_EXAM_SUBJECTS: ExamSubject[] = [
-  { id: 'es-1', exam_id: 'exam-midterm-2025', subject_id: 'subj-hymns', max_score: 50, pass_score: 25, display_order: 1 },
-  { id: 'es-2', exam_id: 'exam-midterm-2025', subject_id: 'subj-liturgy', max_score: 25, pass_score: 12.5, display_order: 2 },
-  { id: 'es-3', exam_id: 'exam-midterm-2025', subject_id: 'subj-coptic', max_score: 25, pass_score: 12.5, display_order: 3 },
-  
-  { id: 'es-4', exam_id: 'exam-final-2025-sec', subject_id: 'subj-hymns', max_score: 60, pass_score: 30, display_order: 1 },
-  { id: 'es-5', exam_id: 'exam-final-2025-sec', subject_id: 'subj-practical', max_score: 40, pass_score: 20, display_order: 2 },
-];
-
-// Note: Manual student codes assigned by admin
-export const INITIAL_STUDENTS: Student[] = [
-  {
-    id: 'stu-1',
-    student_code: 'ETCH-1001',
-    full_name: 'أبانوب جميل يوسف بطرس',
-    phone: '01223456789',
-    guardian_name: 'جميل يوسف بطرس',
-    guardian_phone: '01223456780',
-    notes: 'شماس متميز في نبرات الهزات والألحان الفرايحي.',
-    created_at: '2025-09-15T00:00:00.000Z',
-    is_active: true
-  },
-  {
-    id: 'stu-2',
-    student_code: 'ETCH-1002',
-    full_name: 'مينا عماد غالي سركيس',
-    phone: '01098765432',
-    guardian_name: 'عماد غالي سركيس',
-    guardian_phone: '01098765430',
-    notes: 'منضبط في حضور التسبحة الأسبوعية.',
-    created_at: '2025-09-15T00:00:00.000Z',
-    is_active: true
-  },
-  {
-    id: 'stu-3',
-    student_code: 'ETCH-1003',
-    full_name: 'كيرلس رفعت نصحي ميخائيل',
-    phone: '01122334455',
-    guardian_name: 'رفعت نصحي ميخائيل',
-    guardian_phone: '01122334450',
-    notes: 'حفظ لحن إبؤورو وتاي شوري بإتقان.',
-    created_at: '2025-09-16T00:00:00.000Z',
-    is_active: true
-  },
-  {
-    id: 'stu-4',
-    student_code: 'ETCH-2001',
-    full_name: 'بيشوي ممدوح صادق حنا',
-    phone: '01287654321',
-    guardian_name: 'ممدوح صادق حنا',
-    guardian_phone: '01287654320',
-    notes: 'طالب في المستوى الأول - السنة الثانية - إعدادي.',
-    created_at: '2025-09-16T00:00:00.000Z',
-    is_active: true
-  },
-  {
-    id: 'stu-5',
-    student_code: 'ETCH-2002',
-    full_name: 'يوحنا وجيه حبيب جرجس',
-    phone: '01599887766',
-    guardian_name: 'وجيه حبيب جرجس',
-    guardian_phone: '01599887760',
-    notes: 'المستوى الثاني - تخصص ألحان وخوارس الشمامسة.',
-    created_at: '2025-09-17T00:00:00.000Z',
-    is_active: true
-  }
-];
-
-export const INITIAL_ENROLLMENTS: StudentEnrollment[] = [
-  {
-    id: 'enr-1',
-    student_id: 'stu-1',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr1',
-    class_id: 'class-l1-y1-t1-g34',
-    enrollment_status: 'enrolled',
-    created_at: '2025-09-15T00:00:00.000Z'
-  },
-  {
-    id: 'enr-2',
-    student_id: 'stu-2',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr1',
-    class_id: 'class-l1-y1-t1-g34',
-    enrollment_status: 'enrolled',
-    created_at: '2025-09-15T00:00:00.000Z'
-  },
-  {
-    id: 'enr-3',
-    student_id: 'stu-3',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr1',
-    class_id: 'class-l1-y1-t2-g34',
-    enrollment_status: 'enrolled',
-    created_at: '2025-09-16T00:00:00.000Z'
-  },
-  {
-    id: 'enr-4',
-    student_id: 'stu-4',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-1',
-    grade_id: 'grade-lvl1-yr2',
-    class_id: 'class-l1-y2-t1-prep-sec',
-    enrollment_status: 'enrolled',
-    created_at: '2025-09-16T00:00:00.000Z'
-  },
-  {
-    id: 'enr-5',
-    student_id: 'stu-5',
-    academic_year_id: 'year-2025-2026',
-    stage_id: 'stage-level-2',
-    grade_id: 'grade-lvl2-yr1',
-    class_id: 'class-l2-y1-t1-prep-sec',
-    enrollment_status: 'enrolled',
-    created_at: '2025-09-17T00:00:00.000Z'
-  }
-];
-
-export const INITIAL_RESULTS: Result[] = [
-  // Student 1 (ETCH-1001) - High Honors
-  { id: 'res-1-1', student_id: 'stu-1', exam_subject_id: 'es-1', score: 49, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-1-2', student_id: 'stu-1', exam_subject_id: 'es-2', score: 24.5, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-1-3', student_id: 'stu-1', exam_subject_id: 'es-3', score: 25, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  
-  // Student 2 (ETCH-1002) - Excellent
-  { id: 'res-2-1', student_id: 'stu-2', exam_subject_id: 'es-1', score: 43, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-2-2', student_id: 'stu-2', exam_subject_id: 'es-2', score: 22, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-2-3', student_id: 'stu-2', exam_subject_id: 'es-3', score: 21, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-
-  // Student 3 (ETCH-1003) - Very Good
-  { id: 'res-3-1', student_id: 'stu-3', exam_subject_id: 'es-1', score: 38, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-3-2', student_id: 'stu-3', exam_subject_id: 'es-2', score: 20, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-  { id: 'res-3-3', student_id: 'stu-3', exam_subject_id: 'es-3', score: 18.5, created_at: '2026-01-20T00:00:00.000Z', updated_at: '2026-01-20T00:00:00.000Z' },
-
-  // Student 4 (ETCH-2001) in Prep practical exam
-  { id: 'res-4-1', student_id: 'stu-4', exam_subject_id: 'es-4', score: 57, created_at: '2026-01-07T00:00:00.000Z', updated_at: '2026-01-07T00:00:00.000Z' },
-  { id: 'res-4-2', student_id: 'stu-4', exam_subject_id: 'es-5', score: 38, created_at: '2026-01-07T00:00:00.000Z', updated_at: '2026-01-07T00:00:00.000Z' },
-];
-
-export const INITIAL_ADMINS: AdminProfile[] = [
-  {
-    id: 'admin-1',
-    user_id: 'user-super-1',
-    full_name: 'أبانوب جميل (مدير النظام الأكاديمي)',
-    email: 'admin@t-etchrompi.org',
-    role: 'super_admin',
-    is_active: true,
-    created_at: '2025-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'admin-2',
-    user_id: 'user-results-1',
-    full_name: 'الشماس كيرلس يوسف (مسؤول الكنترول والنتائج)',
-    email: 'results@t-etchrompi.org',
-    role: 'results_manager',
-    is_active: true,
-    created_at: '2025-01-10T00:00:00.000Z'
-  },
-  {
-    id: 'admin-3',
-    user_id: 'user-content-1',
-    full_name: 'مارينا مجدي (مسؤول المحتوى والإعلانات)',
-    email: 'content@t-etchrompi.org',
-    role: 'content_manager',
-    is_active: true,
-    created_at: '2025-01-15T00:00:00.000Z'
-  }
-];
-
-// ==========================================
-// STORAGE SERVICE IMPLEMENTATION
-// ==========================================
+export const INITIAL_YEARS: AcademicYear[] = [];
+export const INITIAL_STAGES: EducationalStage[] = [];
+export const INITIAL_GRADES: Grade[] = [];
+export const INITIAL_CLASSES: ClassItem[] = [];
+export const INITIAL_STUDENTS: Student[] = [];
+export const INITIAL_ENROLLMENTS: StudentEnrollment[] = [];
+export const INITIAL_EXAMS: Exam[] = [];
+export const INITIAL_SUBJECTS: Subject[] = [];
+export const INITIAL_EXAM_SUBJECTS: ExamSubject[] = [];
+export const INITIAL_RESULTS: Result[] = [];
+export const INITIAL_GRADING_RULES: GradingRule[] = [];
+export const INITIAL_ADMINS: AdminProfile[] = [];
 
 class DataService {
+  private cache = new Map<string, unknown>();
+  private idMap = new Map<string, string>();
+  private termMap = new Map<string, string>();
+  private initialized = false;
+  private initializing: Promise<void> | null = null;
+
   private get<T>(key: string, defaultVal: T): T {
-    try {
-      const data = localStorage.getItem(key);
-      if (!data) return defaultVal;
-      return JSON.parse(data) as T;
-    } catch (e) {
-      console.error(`Error reading ${key} from storage:`, e);
-      return defaultVal;
+    return (this.cache.has(key) ? this.cache.get(key) : defaultVal) as T;
+  }
+
+  private uuid(value?: string): string {
+    if (!value) return crypto.randomUUID();
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return value;
+    const existing = this.idMap.get(value);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    this.idMap.set(value, created);
+    return created;
+  }
+
+  private termId(yearId: string, gradeId: string, term?: string): string | null {
+    if (!term || term === 'both') return null;
+    const termNumber = term === 'term2' ? 2 : 1;
+    const terms = (this.cache.get('academic_terms') as any[] | undefined) ?? [];
+    return terms.find(t => t.academic_year_id === yearId && t.grade_id === gradeId && Number(t.term_number) === termNumber)?.id ?? null;
+  }
+
+  private toDatabaseRow(key: string, input: any): any {
+    if (!input || typeof input !== 'object') return input;
+    const row: any = { ...input };
+    row.id = this.uuid(row.id);
+    const foreignKeys = ['academic_year_id','stage_id','grade_id','class_id','student_id','exam_id','subject_id','exam_subject_id','term_id','admin_profile_id'];
+    for (const field of foreignKeys) {
+      if (row[field]) row[field] = this.uuid(row[field]);
+    }
+    if (key === STORAGE_KEYS.CLASSES) {
+      row.term_id = row.term_id || this.termId(row.academic_year_id, row.grade_id, row.term);
+      delete row.term;
+    }
+    if (key === STORAGE_KEYS.EXAMS) {
+      row.term_id = row.term_id || this.termId(row.academic_year_id, row.grade_id, row.term);
+      delete row.term;
+    }
+    delete row.password;
+    return row;
+  }
+
+  private fromDatabaseRows(key: string, rows: any[]): any[] {
+    return (rows ?? []).map(input => {
+      const row = { ...input };
+      if (key === STORAGE_KEYS.CLASSES || key === STORAGE_KEYS.EXAMS) {
+        const term = row.term_id ? this.termMap.get(row.term_id) : undefined;
+        row.term = term || (key === STORAGE_KEYS.EXAMS ? 'both' : 'term1');
+      }
+      return row;
+    });
+  }
+
+  private tableForKey(key: string): string | null {
+    const map: Record<string, string> = {
+      [STORAGE_KEYS.YEARS]: 'academic_years',
+      [STORAGE_KEYS.STAGES]: 'educational_stages',
+      [STORAGE_KEYS.GRADES]: 'grades',
+      [STORAGE_KEYS.CLASSES]: 'classes',
+      [STORAGE_KEYS.STUDENTS]: 'students',
+      [STORAGE_KEYS.ENROLLMENTS]: 'student_enrollments',
+      [STORAGE_KEYS.EXAMS]: 'exams',
+      [STORAGE_KEYS.SUBJECTS]: 'subjects',
+      [STORAGE_KEYS.EXAM_SUBJECTS]: 'exam_subjects',
+      [STORAGE_KEYS.RESULTS]: 'results',
+      [STORAGE_KEYS.GRADING_RULES]: 'grading_rules',
+      [STORAGE_KEYS.BATCHES]: 'import_batches',
+    };
+    return map[key] ?? null;
+  }
+
+  private persist(key: string, value: any, previous: any): void {
+    const client = getSupabaseClient();
+    if (!client || key === STORAGE_KEYS.ACTIVE_ADMIN || key === STORAGE_KEYS.ADMINS) return;
+    const table = this.tableForKey(key);
+    if (key === STORAGE_KEYS.SETTINGS) {
+      const row = this.toDatabaseRow(key, value);
+      void client.from('school_settings').upsert(row).then(({ error }) => {
+        if (error) console.error('Supabase settings write failed:', error.message);
+      });
+      return;
+    }
+    if (!table || !Array.isArray(value)) return;
+    const rows = value.map(item => this.toDatabaseRow(key, item));
+    if (rows.length) {
+      void client.from(table).upsert(rows).then(({ error }) => {
+        if (error) console.error(`Supabase ${table} write failed:`, error.message);
+      });
+    }
+    const currentIds = new Set(rows.map(row => row.id));
+    const removed = (Array.isArray(previous) ? previous : []).filter((row: any) => row?.id && !currentIds.has(this.uuid(row.id)));
+    for (const row of removed) {
+      void client.from(table).delete().eq('id', this.uuid(row.id)).then(({ error }) => {
+        if (error) console.error(`Supabase ${table} delete failed:`, error.message);
+      });
     }
   }
 
   private set<T>(key: string, value: T): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error(`Error saving ${key} to storage:`, e);
-    }
+    const previous = this.cache.get(key);
+    const normalize = (item: any) => {
+      const row: any = { ...item };
+      row.id = this.uuid(row.id);
+      for (const field of ['academic_year_id','stage_id','grade_id','class_id','student_id','exam_id','subject_id','exam_subject_id','term_id','admin_profile_id']) {
+        if (row[field]) row[field] = this.uuid(row[field]);
+      }
+      if ((key === STORAGE_KEYS.CLASSES || key === STORAGE_KEYS.EXAMS) && !row.term_id) {
+        row.term_id = this.termId(row.academic_year_id, row.grade_id, row.term);
+      }
+      return row;
+    };
+    const normalized: any = Array.isArray(value) ? value.map(normalize) : (value && typeof value === 'object' ? normalize(value) : value);
+    this.cache.set(key, normalized);
+    this.persist(key, normalized, previous);
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initializing) return this.initializing;
+    const client = getSupabaseClient();
+    if (!client) return;
+    this.initializing = (async () => {
+      const [settings, years, stages, grades, classes, students, enrollments, exams, subjects, examSubjects, results, gradingRules, batches, terms] = await Promise.all([
+        client.from('school_settings').select('*').limit(1).maybeSingle(),
+        client.from('academic_years').select('*').order('name'),
+        client.from('educational_stages').select('*').order('display_order'),
+        client.from('grades').select('*').order('display_order'),
+        client.from('classes').select('*').order('name'),
+        client.from('students').select('*').order('full_name'),
+        client.from('student_enrollments').select('*'),
+        client.from('exams').select('*').order('exam_date'),
+        client.from('subjects').select('*').order('name'),
+        client.from('exam_subjects').select('*').order('display_order'),
+        client.from('results').select('*'),
+        client.from('grading_rules').select('*').order('minimum_percentage', { ascending: false }),
+        client.from('import_batches').select('*').order('created_at', { ascending: false }),
+        client.from('academic_terms').select('*').order('term_number'),
+      ]);
+      const termRows = terms.data ?? [];
+      this.cache.set('academic_terms', termRows);
+      this.termMap = new Map(termRows.map((term: any) => [term.id, Number(term.term_number) === 2 ? 'term2' : 'term1']));
+      const values: Array<[string, any]> = [
+        [STORAGE_KEYS.SETTINGS, settings.data ?? INITIAL_SETTINGS],
+        [STORAGE_KEYS.YEARS, years.data ?? []],
+        [STORAGE_KEYS.STAGES, stages.data ?? []],
+        [STORAGE_KEYS.GRADES, grades.data ?? []],
+        [STORAGE_KEYS.CLASSES, this.fromDatabaseRows(STORAGE_KEYS.CLASSES, classes.data ?? [])],
+        [STORAGE_KEYS.STUDENTS, students.data ?? []],
+        [STORAGE_KEYS.ENROLLMENTS, enrollments.data ?? []],
+        [STORAGE_KEYS.EXAMS, this.fromDatabaseRows(STORAGE_KEYS.EXAMS, exams.data ?? [])],
+        [STORAGE_KEYS.SUBJECTS, subjects.data ?? []],
+        [STORAGE_KEYS.EXAM_SUBJECTS, examSubjects.data ?? []],
+        [STORAGE_KEYS.RESULTS, results.data ?? []],
+        [STORAGE_KEYS.GRADING_RULES, gradingRules.data ?? []],
+        [STORAGE_KEYS.BATCHES, batches.data ?? []],
+        [STORAGE_KEYS.ADMINS, []],
+      ];
+      for (const [key, value] of values) this.cache.set(key, value);
+      this.initialized = true;
+    })().finally(() => { this.initializing = null; });
+    return this.initializing!;
+  }
+
+  async refresh(): Promise<void> {
+    this.initialized = false;
+    await this.initialize();
+  }
+
+  clearSession(): void {
+    this.cache.clear();
+    this.idMap.clear();
+    this.termMap.clear();
+    this.initialized = false;
   }
 
   // --- Settings ---
@@ -521,22 +294,12 @@ class DataService {
 
   // --- Stages, Grades, Classes ---
   getStages(): EducationalStage[] {
-    const list = this.get<EducationalStage[]>(STORAGE_KEYS.STAGES, INITIAL_STAGES);
-    // Auto-migrate if old 5-stage setup is detected in localStorage
-    if (list.length === 0 || list.some(s => s.id === 'stage-nursery') || !list.some(s => s.id === 'stage-level-1')) {
-      this.applyTwoLevelsFourYearsStructure();
-      return INITIAL_STAGES;
-    }
-    return list;
+    return this.get<EducationalStage[]>(STORAGE_KEYS.STAGES, []);
   }
 
   applyTwoLevelsFourYearsStructure(): void {
-    this.set(STORAGE_KEYS.STAGES, INITIAL_STAGES);
-    this.set(STORAGE_KEYS.GRADES, INITIAL_GRADES);
-    this.set(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    this.set(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
-    this.set(STORAGE_KEYS.EXAM_SUBJECTS, INITIAL_EXAM_SUBJECTS);
-    this.set(STORAGE_KEYS.ENROLLMENTS, INITIAL_ENROLLMENTS);
+    // The two-level/four-year scaffold is seeded in Supabase migrations.
+    void this.initialize();
   }
 
   saveStage(stage: EducationalStage): void {
@@ -572,13 +335,7 @@ class DataService {
   }
 
   getClasses(): ClassItem[] {
-    const list = this.get<ClassItem[]>(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    // Auto-migrate if stored classes don't yet have the 5 cohorts (e.g. grade_1_2)
-    if (list.length === 0 || !list.some(c => c.category === 'grade_1_2')) {
-      this.set(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-      return INITIAL_CLASSES;
-    }
-    return list;
+    return this.get<ClassItem[]>(STORAGE_KEYS.CLASSES, []);
   }
 
   saveClass(cls: ClassItem): void {
@@ -666,12 +423,7 @@ class DataService {
 
   // --- Enrollments ---
   getEnrollments(): StudentEnrollment[] {
-    const list = this.get<StudentEnrollment[]>(STORAGE_KEYS.ENROLLMENTS, INITIAL_ENROLLMENTS);
-    if (list.length === 0 || list.some(e => e.class_id === 'class-l1-y1-t1-pri')) {
-      this.set(STORAGE_KEYS.ENROLLMENTS, INITIAL_ENROLLMENTS);
-      return INITIAL_ENROLLMENTS;
-    }
-    return list;
+    return this.get<StudentEnrollment[]>(STORAGE_KEYS.ENROLLMENTS, []);
   }
 
   saveEnrollment(enrollment: StudentEnrollment): void {
@@ -914,7 +666,7 @@ class DataService {
 
   // --- Admins & Auth ---
   getAdminProfiles(): AdminProfile[] {
-    return this.get<AdminProfile[]>(STORAGE_KEYS.ADMINS, INITIAL_ADMINS);
+    return this.get<AdminProfile[]>(STORAGE_KEYS.ADMINS, []);
   }
 
   saveAdminProfile(admin: AdminProfile): void {
@@ -934,29 +686,16 @@ class DataService {
   }
 
   getActiveAdmin(): AdminProfile | null {
-    return this.get<AdminProfile | null>(STORAGE_KEYS.ACTIVE_ADMIN, INITIAL_ADMINS[0]);
+    return this.get<AdminProfile | null>(STORAGE_KEYS.ACTIVE_ADMIN, null);
   }
 
   setActiveAdmin(admin: AdminProfile | null): void {
     this.set(STORAGE_KEYS.ACTIVE_ADMIN, admin);
   }
 
-  // Reset to default sample data
+  // Destructive resets are disabled for the live school database.
   resetAllData(): void {
-    this.set(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
-    this.set(STORAGE_KEYS.YEARS, INITIAL_YEARS);
-    this.set(STORAGE_KEYS.STAGES, INITIAL_STAGES);
-    this.set(STORAGE_KEYS.GRADES, INITIAL_GRADES);
-    this.set(STORAGE_KEYS.CLASSES, INITIAL_CLASSES);
-    this.set(STORAGE_KEYS.SUBJECTS, INITIAL_SUBJECTS);
-    this.set(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-    this.set(STORAGE_KEYS.ENROLLMENTS, INITIAL_ENROLLMENTS);
-    this.set(STORAGE_KEYS.EXAMS, INITIAL_EXAMS);
-    this.set(STORAGE_KEYS.EXAM_SUBJECTS, INITIAL_EXAM_SUBJECTS);
-    this.set(STORAGE_KEYS.RESULTS, INITIAL_RESULTS);
-    this.set(STORAGE_KEYS.GRADING_RULES, INITIAL_GRADING_RULES);
-    this.set(STORAGE_KEYS.BATCHES, []);
-    this.set(STORAGE_KEYS.ADMINS, INITIAL_ADMINS);
+    console.warn('resetAllData is disabled for the live school database.');
   }
 }
 

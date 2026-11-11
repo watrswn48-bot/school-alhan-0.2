@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CopticCross } from '../CopticIcons';
 import { AdminProfile } from '../../types/database';
 import { getSupabaseClient } from '../../lib/supabase';
+import { dataService } from '../../lib/storage';
 import { Lock, Mail, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface AdminLoginProps {
@@ -51,6 +52,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
         return;
       }
 
+      await dataService.initialize();
+      dataService.setActiveAdmin(profile as AdminProfile);
       onLoginSuccess(profile as AdminProfile);
     } catch {
       setError('حدث خطأ أثناء تسجيل الدخول. حاول مرة أخرى.');

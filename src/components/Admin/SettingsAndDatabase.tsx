@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { CopticCross } from '../CopticIcons';
 import { getSupabaseClient } from '../../lib/supabase';
+import { dataService } from '../../lib/storage';
 
 export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminRole = 'super_admin' }) => {
   useEffect(() => {
@@ -22,7 +23,8 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
       supabase.from('grading_rules').select('*').order('minimum_percentage', { ascending: false }),
     ]).then(([settingsResult, yearResult, rulesResult]) => {
       if (settingsResult.data) setSettings(prev => ({ ...prev, ...settingsResult.data }));
-      if (yearResult.data?.id) setSettings(prev => ({ ...prev, academic_year_id: yearResult.data.id }));
+      const activeYearId = yearResult.data?.id;
+      if (activeYearId) setSettings(prev => ({ ...prev, academic_year_id: activeYearId }));
       if (rulesResult.data) setGradingRules(rulesResult.data as GradingRule[]);
     });
   }, []);
@@ -91,6 +93,7 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     if (error) { setSaveMessage('تعذر حفظ إعدادات المدرسة: ' + error.message); return; }
     const { data } = await supabase.from('school_settings').select('*').limit(1).maybeSingle();
     if (data) setSettings(prev => ({ ...prev, ...data }));
+    await dataService.refresh();
     setSaveMessage('تم حفظ إعدادات المدرسة في قاعدة البيانات.');
   };
 
@@ -153,6 +156,7 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
       ...(id && /^[0-9a-f-]{36}$/i.test(id) ? { id } : {}),
       ...rule,
     })));
+    if (!error) await dataService.refresh();
     setSaveMessage(error ? 'تعذر حفظ قواعد التقدير: ' + error.message : 'تم حفظ قواعد التقدير في قاعدة البيانات.');
   };
 

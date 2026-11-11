@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getSupabaseClient } from '../../lib/supabase';
+import { dataService } from '../../lib/storage';
 import { Student, StudentEnrollment } from '../../types/database';
 import { UserPlus, Search, Filter, Edit, Trash2, CheckCircle2, AlertCircle, AlertTriangle, FileSpreadsheet, KeyRound, User, Phone, Shield } from 'lucide-react';
 
@@ -162,6 +163,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     }
 
     await refreshData();
+    await dataService.refresh();
     setIsModalOpen(false);
   };
 
@@ -175,7 +177,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     if (!supabase) return;
     const { error } = await supabase.from('students').update({ is_active: false }).eq('id', studentToDelete.id);
     if (error) setModalError('تعذر إيقاف سجل الطالب: ' + error.message);
-    else await refreshData();
+    else { await refreshData(); await dataService.refresh(); }
     setStudentToDelete(null);
   };
 

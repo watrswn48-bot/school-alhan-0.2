@@ -7,6 +7,7 @@ import { AdminLayout } from './components/Admin/AdminLayout';
 import { AdminLogin } from './components/Admin/AdminLogin';
 import { AdminProfile } from './types/database';
 import { getSupabaseClient } from './lib/supabase';
+import { dataService } from './lib/storage';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageTab>('home');
@@ -24,7 +25,14 @@ export default function App() {
       const { data, error } = await supabase.from('admin_profiles')
         .select('id,user_id,full_name,email,role,is_active,created_at,admin_permissions(*)')
         .eq('user_id', userId).eq('is_active', true).maybeSingle();
-      if (mounted) setActiveAdmin(!error && data ? data as AdminProfile : null);
+      if (!error && data) {
+        await dataService.initialize();
+        dataService.setActiveAdmin(data as AdminProfile);
+        if (mounted) setActiveAdmin(data as AdminProfile);
+      } else if (mounted) {
+        dataService.clearSession();
+        setActiveAdmin(null);
+      }
     };
     supabase.auth.getSession().then(async ({ data }) => {
       await loadAdmin(data.session?.user.id);
@@ -37,6 +45,7 @@ export default function App() {
   const handleAdminLogout = async () => {
     const supabase = getSupabaseClient();
     if (supabase) await supabase.auth.signOut();
+    dataService.clearSession();
     setActiveAdmin(null);
     setCurrentTab('home');
   };

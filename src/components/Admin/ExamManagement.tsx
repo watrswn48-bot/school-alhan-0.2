@@ -9,6 +9,7 @@ export const ExamManagement: React.FC = () => {
   const years = dataService.getAcademicYears();
   const stages = dataService.getStages();
   const subjects = dataService.getSubjects();
+  const classes = dataService.getClasses();
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,15 +20,13 @@ export const ExamManagement: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [formYearId, setFormYearId] = useState(years.find(y => y.is_active)?.id || years[0]?.id || '');
   const [formStageId, setFormStageId] = useState(stages[0]?.id || '');
+  const [formClassId, setFormClassId] = useState(classes[0]?.id || '');
   const [formTerm, setFormTerm] = useState<SemesterTerm>('term1');
   const [formType, setFormType] = useState<ExamType>('final');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
   const [formNotes, setFormNotes] = useState('');
   const [formIsPublished, setFormIsPublished] = useState(false);
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<{ subject_id: string; max_score: number; pass_score: number }[]>([
-    { subject_id: subjects[0]?.id || 'subj-hymns', max_score: 50, pass_score: 25 },
-    { subject_id: subjects[1]?.id || 'subj-liturgy', max_score: 25, pass_score: 12.5 },
-  ]);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<{ subject_id: string; max_score: number; pass_score: number }[]>([]);
 
   const refreshData = () => {
     setExams(dataService.getExams());
@@ -40,16 +39,13 @@ export const ExamManagement: React.FC = () => {
     const activeYear = years.find(y => y.is_active)?.id || years[0]?.id || '';
     setFormYearId(activeYear);
     setFormStageId(stages[0]?.id || '');
+    setFormClassId(classes[0]?.id || '');
     setFormTerm('term1');
     setFormType('midterm');
     setFormDate(new Date().toISOString().split('T')[0]);
     setFormNotes('');
     setFormIsPublished(false);
-    setSelectedSubjectIds([
-      { subject_id: 'subj-hymns', max_score: 50, pass_score: 25 },
-      { subject_id: 'subj-liturgy', max_score: 25, pass_score: 12.5 },
-      { subject_id: 'subj-coptic', max_score: 25, pass_score: 12.5 }
-    ]);
+    setSelectedSubjectIds([]);
     setIsModalOpen(true);
   };
 
@@ -58,6 +54,7 @@ export const ExamManagement: React.FC = () => {
     setFormName(exam.name);
     setFormYearId(exam.academic_year_id);
     setFormStageId(exam.stage_id || stages[0]?.id || '');
+    setFormClassId(exam.class_id || classes[0]?.id || '');
     setFormTerm(exam.term || 'term1');
     setFormType(exam.exam_type);
     setFormDate(exam.exam_date);
@@ -72,7 +69,7 @@ export const ExamManagement: React.FC = () => {
         pass_score: es.pass_score || es.max_score / 2
       })));
     } else {
-      setSelectedSubjectIds([{ subject_id: 'subj-hymns', max_score: 50, pass_score: 25 }]);
+      setSelectedSubjectIds([]);
     }
     setIsModalOpen(true);
   };
@@ -96,7 +93,7 @@ export const ExamManagement: React.FC = () => {
 
   const handleSaveExam = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) return;
+    if (!formName.trim() || !formClassId || selectedSubjectIds.length === 0) return;
 
     const examId = editingExam ? editingExam.id : `exam-${Date.now()}`;
     const examObj: Exam = {
@@ -104,6 +101,8 @@ export const ExamManagement: React.FC = () => {
       name: formName.trim(),
       academic_year_id: formYearId,
       stage_id: formStageId,
+      grade_id: classes.find(cls => cls.id === formClassId)?.grade_id,
+      class_id: formClassId,
       term: formTerm,
       exam_type: formType,
       exam_date: formDate,
@@ -121,6 +120,7 @@ export const ExamManagement: React.FC = () => {
         id: esId,
         exam_id: examId,
         subject_id: item.subject_id,
+        class_id: formClassId,
         max_score: Number(item.max_score),
         pass_score: Number(item.pass_score),
         display_order: index + 1
@@ -133,7 +133,8 @@ export const ExamManagement: React.FC = () => {
   };
 
   const addSubjectRow = () => {
-    setSelectedSubjectIds([...selectedSubjectIds, { subject_id: subjects[0]?.id || 'subj-hymns', max_score: 50, pass_score: 25 }]);
+    if (!subjects.length) return;
+    setSelectedSubjectIds([...selectedSubjectIds, { subject_id: subjects[0].id, max_score: 50, pass_score: 25 }]);
   };
 
   const removeSubjectRow = (index: number) => {
@@ -167,6 +168,7 @@ export const ExamManagement: React.FC = () => {
       </div>
 
       {/* Exams Grid / Table */}
+      {!subjects.length && <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">أضف المواد أولاً من قسم الهيكل الأكاديمي قبل إنشاء الامتحانات.</div>}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {exams.map((exam) => {
           const year = years.find(y => y.id === exam.academic_year_id);
@@ -326,6 +328,14 @@ export const ExamManagement: React.FC = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الفصل الدراسي المحدد</label>
+                <select required value={formClassId} onChange={e => setFormClassId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900">
+                  <option value="">اختر الفصل</option>
+                  {classes.filter(cls => cls.academic_year_id === formYearId && (formTerm === 'both' || cls.term === formTerm)).map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
