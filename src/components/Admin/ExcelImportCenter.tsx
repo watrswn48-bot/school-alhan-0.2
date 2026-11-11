@@ -100,10 +100,18 @@ export const ExcelImportCenter: React.FC = () => {
   const runValidation = () => {
     if (!parsedData) return;
 
+    const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ar');
     const errors: ValidationErrorItem[] = [];
     const existingStudents = dataService.getStudents();
-    const existingCodes = new Set(existingStudents.map(s => s.student_code.trim().toLowerCase()));
+    const existingCodes = new Set(existingStudents.map(s => normalize(s.student_code)));
     const fileCodesSet = new Set<string>();
+    const resultKeys = new Set<string>();
+    const stages = dataService.getStages();
+    const grades = dataService.getGrades();
+    const classes = dataService.getClasses();
+    const exams = dataService.getExams();
+    const subjects = dataService.getSubjects();
+    const enrollments = dataService.getEnrollments();
 
     let validCount = 0;
     let duplicateCount = 0;
@@ -111,97 +119,87 @@ export const ExcelImportCenter: React.FC = () => {
     parsedData.rows.forEach((row, idx) => {
       const rowNum = row.__rowNum || idx + 2;
       let hasRowError = false;
+      const addError = (field: string, value: unknown, message: string) => {
+        errors.push({ rowNumber: rowNum, field, value: String(value ?? ''), message });
+        hasRowError = true;
+      };
+
+      const codeHeader = columnMappings['student_code'];
+      const codeVal = codeHeader ? String(row[codeHeader] ?? '').trim() : '';
+      if (!codeHeader || !codeVal) {
+        addError('كود الطالب', codeVal, 'يجب اختيار عمود كود الطالب وإدخال كود في كل صف.');
+      } else {
+        const codeKey = normalize(codeVal);
+        if (fileCodesSet.has(codeKey)) {
+          addError('كود الطالب', codeVal, `كود الطالب (${codeVal}) مكرر داخل الملف.`);
+          duplicateCount++;
+        } else fileCodesSet.add(codeKey);
+
+        if (importType === 'students' && existingCodes.has(codeKey)) {
+          addError('كود الطالب', codeVal, `كود الطالب (${codeVal}) مسجل بالفعل في قاعدة البيانات.`);
+          duplicateCount++;
+        }
+        if (importType === 'results' && !existingCodes.has(codeKey)) {
+          addError('كود الطالب', codeVal, `كود الطالب (${codeVal}) غير موجود في سجلات المدرسة.`);
+        }
+      }
 
       if (importType === 'students') {
-        const codeHeader = columnMappings['student_code'];
         const nameHeader = columnMappings['full_name'];
+        const nameVal = nameHeader ? String(row[nameHeader] ?? '').trim() : '';
+        if (!nameHeader || !nameVal) addError('اسم الطالب', nameVal, 'يجب اختيار عمود الاسم وإدخال اسم الطالب.');
 
-        const codeVal = codeHeader ? String(row[codeHeader] || '').trim() : '';
-        const nameVal = nameHeader ? String(row[nameHeader] || '').trim() : '';
+        const stageHeader = columnMappings['stage'];
+        const gradeHeader = columnMappings['grade'];
+        const classHeader = columnMappings['class'];
+        const stageName = stageHeader ? row[stageHeader] : '';
+        const gradeName = gradeHeader ? row[gradeHeader] : '';
+        const className = classHeader ? row[classHeader] : '';
+        const stage = stages.find(item => normalize(item.name) === normalize(stageName));
+        const grade = grades.find(item => item.stage_id === stage?.id && normalize(item.name) === normalize(gradeName));
+        const classItem = classes.find(item => item.grade_id === grade?.id && normalize(item.name) === normalize(className));
 
-        // Validation 1: Student Code is required
-        if (!codeVal) {
-          errors.push({
-            rowNumber: rowNum,
-            field: 'كود الطالب',
-            value: codeVal,
-            message: 'كود الطالب فارغ. كود الطالب إلزامي ويجب تحديده يدوياً.'
-          });
-          hasRowError = true;
-        } else {
-          // Validation 2: Code uniqueness within file
-          const codeKey = codeVal.toLowerCase();
-          if (fileCodesSet.has(codeKey)) {
-            errors.push({
-              rowNumber: rowNum,
-              field: 'كود الطالب',
-              value: codeVal,
-              message: `كود الطالب (${codeVal}) مكرر أكثر من مرة داخل نفس ملف الإكسل.`
-            });
-            duplicateCount++;
-            hasRowError = true;
-          } else {
-            fileCodesSet.add(codeKey);
-          }
-
-          // Validation 3: Code uniqueness in database
-          if (existingCodes.has(codeKey)) {
-            errors.push({
-              rowNumber: rowNum,
-              field: 'كود الطالب',
-              value: codeVal,
-              message: `كود الطالب (${codeVal}) مسجل مسبقاً في قاعدة بيانات المدرسة. يُمنع الكتابة فوق سجلات الطلاب القائمة.`
-            });
-            duplicateCount++;
-            hasRowError = true;
-          }
-        }
-
-        // Validation 4: Student Name is required
-        if (!nameVal) {
-          errors.push({
-            rowNumber: rowNum,
-            field: 'اسم الطالب',
-            value: nameVal,
-            message: 'اسم الطالب فارغ. يجب إدخال اسم ثلاثي أو رباعي للطالب.'
-          });
-          hasRowError = true;
-        }
-
+        if (!stageHeader || !normalize(stageName) || !stage) addError('المستوى', stageName, 'حدد عمود المستوى واكتب اسم مستوى موجودًا في قاعدة البيانات.');
+        if (!gradeHeader || !normalize(gradeName) || !grade) addError('السنة الدراسية', gradeName, 'حدد عمود السنة واكتب سنة تابعة للمستوى المختار.');
+        if (!classHeader || !normalize(className) || !classItem) addError('الفصل', className, 'حدد عمود الفصل واكتب فصلًا تابعًا للسنة المختارة.');
       } else {
-        // Results Validation
-        const codeHeader = columnMappings['student_code'];
         const scoreHeader = columnMappings['score'];
-
-        const codeVal = codeHeader ? String(row[codeHeader] || '').trim() : '';
-        const scoreVal = scoreHeader ? parseFloat(String(row[scoreHeader])) : NaN;
-
-        if (!codeVal) {
-          errors.push({
-            rowNumber: rowNum,
-            field: 'كود الطالب',
-            value: codeVal,
-            message: 'كود الطالب فارغ في سجل الدرجة.'
-          });
-          hasRowError = true;
-        } else if (!existingCodes.has(codeVal.toLowerCase())) {
-          errors.push({
-            rowNumber: rowNum,
-            field: 'كود الطالب',
-            value: codeVal,
-            message: `كود الطالب (${codeVal}) غير موجود في سجلات المدرسة.`
-          });
-          hasRowError = true;
+        const score = scoreHeader ? Number(String(row[scoreHeader] ?? '').replace(',', '.')) : NaN;
+        if (!scoreHeader || !Number.isFinite(score) || score < 0) {
+          addError('الدرجة', scoreHeader ? row[scoreHeader] : '', 'اختر عمود الدرجة وأدخل رقمًا صحيحًا غير سالب.');
         }
 
-        if (isNaN(scoreVal) || scoreVal < 0) {
-          errors.push({
-            rowNumber: rowNum,
-            field: 'الدرجة',
-            value: row[scoreHeader],
-            message: 'الدرجة غير صحيحة أو سالبة.'
-          });
-          hasRowError = true;
+        const examHeader = columnMappings['exam_name'];
+        const subjectHeader = columnMappings['subject_name'];
+        const examName = examHeader ? row[examHeader] : '';
+        const subjectName = subjectHeader ? row[subjectHeader] : '';
+        const exam = exams.find(item => normalize(item.name) === normalize(examName));
+        const examSubject = exam
+          ? dataService.getExamSubjects(exam.id).find(item =>
+              normalize(subjects.find(subject => subject.id === item.subject_id)?.name) === normalize(subjectName)
+            )
+          : undefined;
+
+        if (!examHeader || !normalize(examName) || !exam) addError('الامتحان', examName, 'حدد عمود الامتحان واكتب اسم امتحان موجودًا كما هو في النظام.');
+        if (!subjectHeader || !normalize(subjectName) || !examSubject) addError('المادة', subjectName, 'حدد عمود المادة واكتب مادة مضافة لهذا الامتحان.');
+        if (examSubject && Number.isFinite(score) && score > Number(examSubject.max_score)) {
+          addError('الدرجة', score, `الدرجة تتجاوز النهاية العظمى للمادة (${examSubject.max_score}).`);
+        }
+
+        const student = existingStudents.find(item => normalize(item.student_code) === normalize(codeVal));
+        const enrollment = student && exam ? enrollments.find(item =>
+          item.student_id === student.id &&
+          item.academic_year_id === exam.academic_year_id &&
+          (!exam.stage_id || item.stage_id === exam.stage_id) &&
+          (!exam.grade_id || item.grade_id === exam.grade_id) &&
+          (!exam.class_id || item.class_id === exam.class_id)
+        ) : undefined;
+        if (student && exam && !enrollment) addError('القيد الدراسي', codeVal, 'الطالب غير مقيد في المستوى والسنة والفصل المحدد للامتحان.');
+
+        if (student && examSubject && scoreHeader && Number.isFinite(score)) {
+          const key = `${student.id}:${examSubject.id}`;
+          if (resultKeys.has(key)) addError('الدرجة', score, 'يوجد أكثر من سجل لنفس الطالب والمادة والامتحان داخل الملف.');
+          else resultKeys.add(key);
         }
       }
 
@@ -216,132 +214,108 @@ export const ExcelImportCenter: React.FC = () => {
       duplicateCount,
       errors
     });
-
-    setCurrentStep(6); // Advance to Validation Review
+    setCurrentStep(6);
   };
 
-  // Step 8: Commit Valid Records
-  const handleCommitImport = () => {
+  // Step 8: Commit only rows that passed validation and match real school records.
+  const handleCommitImport = async () => {
     if (!parsedData || !validationSummary) return;
 
+    setLoading(true);
+    setParsingError(null);
     let successful = 0;
     let failed = 0;
-    const activeYear = dataService.getAcademicYears().find(y => y.is_active)?.id || '';
+    const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ar');
+    const activeYear = dataService.getAcademicYears().find(year => year.is_active)?.id || '';
     const stages = dataService.getStages();
     const grades = dataService.getGrades();
     const classes = dataService.getClasses();
+    const exams = dataService.getExams();
+    const subjects = dataService.getSubjects();
 
-    if (importType === 'students') {
-      const codeHdr = columnMappings['student_code'];
-      const nameHdr = columnMappings['full_name'];
-      const phoneHdr = columnMappings['phone'];
-      const guardianHdr = columnMappings['guardian_name'];
-      const notesHdr = columnMappings['notes'];
-
-      // Row numbers that failed validation
-      const errorRows = new Set(validationSummary.errors.map(e => e.rowNumber));
-
+    try {
+      const errorRows = new Set(validationSummary.errors.map(error => error.rowNumber));
       parsedData.rows.forEach((row, idx) => {
         const rowNum = row.__rowNum || idx + 2;
-        if (errorRows.has(rowNum)) {
-          failed++;
-          return;
-        }
+        if (errorRows.has(rowNum)) { failed++; return; }
 
-        const code = String(row[codeHdr]).trim();
-        const name = String(row[nameHdr]).trim();
-        const phone = phoneHdr ? String(row[phoneHdr] || '').trim() : '';
-        const guardian = guardianHdr ? String(row[guardianHdr] || '').trim() : '';
-        const notes = notesHdr ? String(row[notesHdr] || '').trim() : '';
+        const code = String(row[columnMappings['student_code']] ?? '').trim();
+        if (importType === 'students') {
+          if (!activeYear) { failed++; return; }
+          const stage = stages.find(item => normalize(item.name) === normalize(row[columnMappings['stage']]));
+          const grade = grades.find(item => item.stage_id === stage?.id && normalize(item.name) === normalize(row[columnMappings['grade']]));
+          const classItem = classes.find(item => item.grade_id === grade?.id && normalize(item.name) === normalize(row[columnMappings['class']]));
+          if (!stage || !grade || !classItem) { failed++; return; }
 
-        const studentId = `stu-imp-${Date.now()}-${idx}`;
-        const newStudent: Student = {
-          id: studentId,
-          student_code: code, // Strictly preserve manual code from Excel
-          full_name: name,
-          phone,
-          guardian_name: guardian,
-          notes,
-          is_active: true,
-          created_at: new Date().toISOString()
-        };
-
-        const res = dataService.saveStudent(newStudent);
-        if (res.success) {
-          // Default enrollment into primary stage / class 1
+          const studentId = `stu-imp-${Date.now()}-${idx}`;
+          const newStudent: Student = {
+            id: studentId,
+            student_code: code,
+            full_name: String(row[columnMappings['full_name']] ?? '').trim(),
+            phone: columnMappings['phone'] ? String(row[columnMappings['phone']] ?? '').trim() : '',
+            guardian_name: columnMappings['guardian_name'] ? String(row[columnMappings['guardian_name']] ?? '').trim() : '',
+            notes: columnMappings['notes'] ? String(row[columnMappings['notes']] ?? '').trim() : '',
+            is_active: true,
+            created_at: new Date().toISOString()
+          };
+          const saved = dataService.saveStudent(newStudent);
+          if (!saved.success) { failed++; return; }
           dataService.saveEnrollment({
             id: `enr-${studentId}`,
             student_id: studentId,
             academic_year_id: activeYear,
-            stage_id: stages[1]?.id || stages[0]?.id || '',
-            grade_id: grades[2]?.id || grades[0]?.id || '',
-            class_id: classes[0]?.id || '',
+            stage_id: stage.id,
+            grade_id: grade.id,
+            class_id: classItem.id,
             enrollment_status: 'enrolled',
             created_at: new Date().toISOString()
           });
           successful++;
         } else {
-          failed++;
-        }
-      });
-    } else {
-      // Results Import logic
-      const codeHdr = columnMappings['student_code'];
-      const scoreHdr = columnMappings['score'];
-      const exams = dataService.getExams();
-      const firstExam = exams[0];
-      const examSubjects = dataService.getExamSubjects(firstExam?.id);
-      const firstSubject = examSubjects[0];
-
-      const errorRows = new Set(validationSummary.errors.map(e => e.rowNumber));
-
-      parsedData.rows.forEach((row, idx) => {
-        const rowNum = row.__rowNum || idx + 2;
-        if (errorRows.has(rowNum)) {
-          failed++;
-          return;
-        }
-
-        const code = String(row[codeHdr]).trim();
-        const student = dataService.findStudentByCode(code);
-        const score = parseFloat(String(row[scoreHdr]));
-
-        if (student && firstSubject) {
-          dataService.saveResult({
-            id: `res-imp-${student.id}-${firstSubject.id}`,
+          const student = dataService.findStudentByCode(code);
+          const exam = exams.find(item => normalize(item.name) === normalize(row[columnMappings['exam_name']]));
+          const examSubject = exam
+            ? dataService.getExamSubjects(exam.id).find(item =>
+                normalize(subjects.find(subject => subject.id === item.subject_id)?.name) === normalize(row[columnMappings['subject_name']])
+              )
+            : undefined;
+          const score = Number(String(row[columnMappings['score']] ?? '').replace(',', '.'));
+          if (!student || !examSubject || !Number.isFinite(score)) { failed++; return; }
+          const saved = dataService.saveResult({
+            id: `res-imp-${student.id}-${examSubject.id}`,
             student_id: student.id,
-            exam_subject_id: firstSubject.id,
+            exam_subject_id: examSubject.id,
             score,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            is_published: false,
+            published_at: null
           });
-          successful++;
-        } else {
-          failed++;
+          if (saved.success) successful++;
+          else failed++;
         }
       });
+
+      const batch: ImportBatch = {
+        id: `batch-${Date.now()}`,
+        uploaded_by: currentAdmin?.full_name || 'مسؤول الكنترول',
+        file_name: selectedFile?.name || 'ملف_إكسل.xlsx',
+        import_type: importType,
+        total_rows: parsedData.totalRows,
+        successful_rows: successful,
+        failed_rows: failed,
+        created_at: new Date().toISOString()
+      };
+      dataService.saveImportBatch(batch);
+      await dataService.flush();
+
+      setFinalReport({ successful, failed, duplicates: validationSummary.duplicateCount });
+      setCurrentStep(9);
+    } catch (error) {
+      setParsingError('تعذر حفظ بيانات الاستيراد في قاعدة البيانات: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
     }
-
-    // Save batch record to history
-    const batch: ImportBatch = {
-      id: `batch-${Date.now()}`,
-      uploaded_by: currentAdmin?.full_name || 'مسؤول الكنترول',
-      file_name: selectedFile?.name || 'ملف_إكسل.xlsx',
-      import_type: importType,
-      total_rows: parsedData.totalRows,
-      successful_rows: successful,
-      failed_rows: failed,
-      created_at: new Date().toISOString()
-    };
-    dataService.saveImportBatch(batch);
-
-    setFinalReport({
-      successful,
-      failed,
-      duplicates: validationSummary.duplicateCount
-    });
-
-    setCurrentStep(9); // Detailed Report Step
   };
 
   return (
@@ -421,85 +395,38 @@ export const ExcelImportCenter: React.FC = () => {
               </button>
             </div>
 
-            <div className="border-2 border-dashed border-[var(--school-accent)]/50 rounded-2xl p-8 hover:bg-[#faf8f5] transition-colors relative cursor-pointer">
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleFileChange}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-              <div className="space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-amber-50 text-[#b8860b] flex items-center justify-center mx-auto">
-                  <Upload className="w-7 h-7" />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-[var(--school-primary)]">
-                    اضغط هنا لاختيار ملف الإكسل أو اسحبه داخل هذا المربع
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">يدعم ملفات (.xlsx, .csv)</p>
-                </div>
-              </div>
-            </div>
-
-            {parsingError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>{parsingError}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3 & 4: Preview Table and Column Mapping */}
-      {currentStep === 3 && parsedData && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="text-lg font-bold font-amiri text-[var(--school-primary)]">
-                الخطوة 2: معاينة البيانات وتعيين أعمدة الإكسل
-              </h3>
-              <p className="text-xs text-slate-500">
-                تمت قراءة <strong className="font-mono">{parsedData.totalRows}</strong> صف من الملف. طابق أعمدة الملف مع حقول قاعدة البيانات.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={resetWizard}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg cursor-pointer"
-              >
-                إلغاء واختيار ملف آخر
-              </button>
-              <button
-                onClick={runValidation}
-                className="px-5 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
-              >
-                <span>فحص البيانات والتحقق</span>
-                <ArrowLeft className="w-4 h-4 text-[var(--school-accent)]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mapping Controls */}
+            <div className="border-2 border-dashed border-[var(--school-accent)]/50 roun          {/* Mapping Controls */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[#faf8f5] p-4 rounded-xl border border-slate-200 text-xs">
-            {importType === 'students' ? (
-              <>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    كود الطالب <span className="text-red-600">* (يدوي وفريد)</span>
-                  </label>
-                  <select
-                    value={columnMappings['student_code'] || ''}
-                    onChange={(e) => setColumnMappings({ ...columnMappings, student_code: e.target.value })}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
-                  >
-                    <option value="">-- اختر عمود الكود --</option>
-                    {parsedData.headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
+            {(importType === 'students' ? [
+              ['student_code', 'كود الطالب *'],
+              ['full_name', 'اسم الطالب *'],
+              ['stage', 'المستوى *'],
+              ['grade', 'السنة الدراسية *'],
+              ['class', 'الفصل *'],
+              ['phone', 'رقم الهاتف'],
+              ['guardian_name', 'اسم ولي الأمر'],
+              ['notes', 'ملاحظات'],
+            ] : [
+              ['student_code', 'كود الطالب *'],
+              ['exam_name', 'اسم الامتحان *'],
+              ['subject_name', 'المادة *'],
+              ['score', 'الدرجة *'],
+            ]).map(([field, label]) => (
+              <div key={field}>
+                <label className="block font-bold text-slate-700 mb-1">{label}</label>
+                <select
+                  value={columnMappings[field] || ''}
+                  onChange={(e) => setColumnMappings({ ...columnMappings, [field]: e.target.value })}
+                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
+                >
+                  <option value="">-- اختر العمود --</option>
+                  {parsedData.headers.map(header => <option key={header} value={header}>{header}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
 
-                <div>
+            <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     اسم الطالب <span className="text-red-600">*</span>
                   </label>
