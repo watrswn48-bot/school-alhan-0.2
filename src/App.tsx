@@ -10,9 +10,17 @@ import { getSupabaseClient } from './lib/supabase';
 import { dataService } from './lib/storage';
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<PageTab>('home');
+  const [currentTab, setCurrentTab] = useState<PageTab>(() =>
+    window.location.pathname.replace(/\/+$/, '').endsWith('/admin') ? 'admin' : 'home'
+  );
   const [activeAdmin, setActiveAdmin] = useState<AdminProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const basePath = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+    const targetPath = currentTab === 'admin' ? `${basePath}admin` : basePath;
+    if (window.location.pathname !== targetPath) window.history.replaceState({}, '', targetPath);
+  }, [currentTab]);
 
   useEffect(() => {
     document.documentElement.dir = 'rtl';
@@ -65,7 +73,7 @@ export default function App() {
   const showPublicShell = currentTab !== 'admin' || !activeAdmin;
   return (
     <div className="min-h-screen flex flex-col bg-[#faf8f5] text-slate-900 selection:bg-[var(--school-accent)]/30 selection:text-[var(--school-primary)] font-sans">
-      {showPublicShell && <Navbar currentTab={currentTab} onSelectTab={setCurrentTab} isAdminLoggedIn={Boolean(activeAdmin)} />}
+      {showPublicShell && <Navbar currentTab={currentTab} onSelectTab={setCurrentTab} />}
       <main className="flex-1 flex flex-col">
         {currentTab === 'home' && <HomePage onOpenResults={() => setCurrentTab('results')} />}
         {currentTab === 'results' && <StudentResults />}

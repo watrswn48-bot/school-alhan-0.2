@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { CopticCross } from './CopticIcons';
-import { Award, Lock, Home } from 'lucide-react';
+import { Award, Home } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
 export type PageTab = 'home' | 'results' | 'admin';
 interface NavbarProps {
   currentTab: PageTab;
   onSelectTab: (tab: PageTab) => void;
-  isAdminLoggedIn: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentTab, onSelectTab, isAdminLoggedIn }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentTab, onSelectTab }) => {
   const [settings, setSettings] = useState<{ school_name: string; church_name: string; logo_url?: string }>({
     school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', logo_url: '',
   });
@@ -45,9 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onSelectTab, isAdmin
           <button onClick={() => onSelectTab('results')} className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all ${currentTab === 'results' ? 'bg-[var(--school-accent)] text-[var(--school-primary)]' : 'bg-gradient-to-r from-[var(--school-accent)] to-[#b8860b] text-[var(--school-primary)] hover:brightness-110'}`}>
             <Award className="w-4 h-4" /><span>النتائج</span>
           </button>
-          <button onClick={() => onSelectTab('admin')} title="لوحة تحكم الكنترول والإدارة" className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${currentTab === 'admin' ? 'bg-amber-950/60 text-[#e0c588] border-[var(--school-accent)]' : 'border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'}`}>
-            <Lock className="w-3.5 h-3.5 text-[var(--school-accent)]" /><span>{isAdminLoggedIn ? 'الإدارة' : 'دخول الإدارة'}</span>
-          </button>
+
         </nav>
       </div>
     </header>
