@@ -116,6 +116,18 @@ export const AcademicManagement: React.FC = () => {
     setSubjects(dataService.getSubjects());
   };
 
+  const confirmPersistence = async (message: string): Promise<boolean> => {
+    try {
+      await dataService.flush();
+      return true;
+    } catch (error) {
+      try { await dataService.refresh(); } catch { /* keep the original persistence error */ }
+      refreshData();
+      showToast(message + ': ' + (error as Error).message, 'error');
+      return false;
+    }
+  };
+
   // --- Years Operations ---
   const handleCreateYear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +169,7 @@ export const AcademicManagement: React.FC = () => {
     warning?: string;
   } | null>(null);
 
-  const executeDelete = () => {
+  const executeDelete = async () => {
     if (!deleteTarget) return;
     const { type, id, name, typeLabel } = deleteTarget;
 
@@ -179,6 +191,7 @@ export const AcademicManagement: React.FC = () => {
       dataService.deleteSubject(id);
     }
 
+    if (!(await confirmPersistence('تعذر حذف السجل من قاعدة البيانات'))) { setDeleteTarget(null); return; }
     refreshData();
     showToast(`تم حذف ${typeLabel} (${name}) بنجاح`);
     setDeleteTarget(null);
@@ -198,14 +211,15 @@ export const AcademicManagement: React.FC = () => {
     });
   };
 
-  const handleSetActiveYear = (yearId: string) => {
+  const handleSetActiveYear = async (yearId: string) => {
     dataService.setActiveAcademicYear(yearId);
+    if (!(await confirmPersistence('تعذر تحديث العام الدراسي النشط'))) return;
     refreshData();
     showToast('تم تعيين العام الدراسي كعام نشط');
   };
 
   // --- Stages Operations ---
-  const handleCreateStage = (e: React.FormEvent) => {
+  const handleCreateStage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStageName.trim()) return;
 
@@ -215,6 +229,7 @@ export const AcademicManagement: React.FC = () => {
       description: newStageDesc.trim(),
       display_order: stages.length + 1
     });
+    if (!(await confirmPersistence('تعذر حفظ المرحلة التعليمية'))) return;
 
     setNewStageName('');
     setNewStageDesc('');
@@ -222,11 +237,12 @@ export const AcademicManagement: React.FC = () => {
     showToast('تمت إضافة المرحلة التعليمية بنجاح');
   };
 
-  const handleUpdateStage = (e: React.FormEvent) => {
+  const handleUpdateStage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStage || !editingStage.name.trim()) return;
 
     dataService.saveStage(editingStage);
+    if (!(await confirmPersistence('تعذر تعديل المرحلة التعليمية'))) return;
     setEditingStage(null);
     refreshData();
     showToast('تم تعديل المرحلة التعليمية بنجاح');
@@ -244,7 +260,7 @@ export const AcademicManagement: React.FC = () => {
   };
 
   // --- Grades Operations ---
-  const handleCreateGrade = (e: React.FormEvent) => {
+  const handleCreateGrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGradeName.trim()) return;
 
@@ -254,17 +270,19 @@ export const AcademicManagement: React.FC = () => {
       name: newGradeName.trim(),
       display_order: grades.length + 1
     });
+    if (!(await confirmPersistence('تعذر حفظ السنة الدراسية'))) return;
 
     setNewGradeName('');
     refreshData();
     showToast('تمت إضافة الصف الدراسي بنجاح');
   };
 
-  const handleUpdateGrade = (e: React.FormEvent) => {
+  const handleUpdateGrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingGrade || !editingGrade.name.trim()) return;
 
     dataService.saveGrade(editingGrade);
+    if (!(await confirmPersistence('تعذر تعديل السنة الدراسية'))) return;
     setEditingGrade(null);
     refreshData();
     showToast('تم تعديل الصف الدراسي بنجاح');
@@ -281,15 +299,24 @@ export const AcademicManagement: React.FC = () => {
     });
   };
 
-  const handleApplyTwoLevelsPreset = () => {
-    dataService.applyTwoLevelsFourYearsStructure();
-    refreshData();
-    setConfirmApplyTwoLevelsModal(false);
-    showToast('تم تطبيق الهيكل المعتمد بنجاح (مستويان × ٤ سنوات × ترمين)');
+  const handleApplyTwoLevelsPreset = async () => {
+    try {
+      await dataService.refresh();
+      refreshData();
+      const structureIsReady = dataService.getStages().length === 2 && dataService.getGrades().length === 8;
+      setConfirmApplyTwoLevelsModal(false);
+      if (!structureIsReady) {
+        showToast('الهيكل الموجود في قاعدة البيانات غير مكتمل. لم يتم تغيير أي بيانات.', 'error');
+        return;
+      }
+      showToast('تم تحديث عرض الهيكل الموجود في قاعدة البيانات (مستويان × ٤ سنوات). لم يتم إنشاء سجلات مكررة.');
+    } catch (error) {
+      showToast('تعذر تحميل الهيكل الدراسي: ' + (error as Error).message, 'error');
+    }
   };
 
   // --- Classes Operations ---
-  const handleCreateClass = (e: React.FormEvent) => {
+  const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClassName.trim()) return;
 
@@ -302,17 +329,19 @@ export const AcademicManagement: React.FC = () => {
       term: newClassTerm,
       category: newClassCategory
     });
+    if (!(await confirmPersistence('تعذر حفظ الفصل'))) return;
 
     setNewClassName('');
     refreshData();
     showToast('تمت إضافة الفصل بنجاح');
   };
 
-  const handleUpdateClass = (e: React.FormEvent) => {
+  const handleUpdateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClass || !editingClass.name.trim()) return;
 
     dataService.saveClass(editingClass);
+    if (!(await confirmPersistence('تعذر تعديل الفصل'))) return;
     setEditingClass(null);
     refreshData();
     showToast(`تم تعديل الفصل (${editingClass.name}) بنجاح`);
@@ -328,7 +357,7 @@ export const AcademicManagement: React.FC = () => {
   };
 
   // --- Subjects Operations ---
-  const handleCreateSubject = (e: React.FormEvent) => {
+  const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubjName.trim()) return;
 
@@ -337,6 +366,7 @@ export const AcademicManagement: React.FC = () => {
       name: newSubjName.trim(),
       description: newSubjDesc.trim()
     });
+    if (!(await confirmPersistence('تعذر حفظ المادة'))) return;
 
     setNewSubjName('');
     setNewSubjDesc('');
@@ -344,11 +374,12 @@ export const AcademicManagement: React.FC = () => {
     showToast('تمت إضافة المادة الكنسية بنجاح');
   };
 
-  const handleUpdateSubject = (e: React.FormEvent) => {
+  const handleUpdateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSubject || !editingSubject.name.trim()) return;
 
     dataService.saveSubject(editingSubject);
+    if (!(await confirmPersistence('تعذر تعديل المادة'))) return;
     setEditingSubject(null);
     refreshData();
     showToast(`تم تعديل مادة (${editingSubject.name}) بنجاح`);
@@ -407,7 +438,7 @@ export const AcademicManagement: React.FC = () => {
             className="px-4 py-2.5 bg-[var(--school-primary)] hover:bg-[#162a4d] text-[#e0c588] rounded-xl text-xs font-bold flex items-center gap-2 shadow cursor-pointer transition-all self-start md:self-auto border border-[var(--school-accent)]/40 hover:shadow-md"
           >
             <Sparkles className="w-4 h-4 text-[var(--school-accent)]" />
-            <span>تطبيق الهيكل المعتمد (مستويين × ٤ سنوات × ترمين)</span>
+            <span>تحديث الهيكل المعتمد من قاعدة البيانات</span>
           </button>
         </div>
 
@@ -1468,7 +1499,7 @@ export const AcademicManagement: React.FC = () => {
                 <Sparkles className="w-5 h-5 text-[var(--school-accent)]" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-[var(--school-primary)] font-amiri">تطبيق الهيكل المعتمد للمدرسة</h3>
+                <h3 className="font-bold text-base text-[var(--school-primary)] font-amiri">تحديث الهيكل الدراسي المعتمد</h3>
                 <p className="text-xs text-slate-500">نظام المستويين (٤ سنوات × ترمين × فصول المراحل)</p>
               </div>
             </div>
@@ -1500,7 +1531,7 @@ export const AcademicManagement: React.FC = () => {
                 className="px-5 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-[#e0c588] font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1.5"
               >
                 <Sparkles className="w-4 h-4 text-[var(--school-accent)]" />
-                <span>نعم، تطبيق الهيكل المعتمد الآن</span>
+                <span>تحديث وعرض الهيكل الموجود</span>
               </button>
             </div>
           </div>
