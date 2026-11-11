@@ -47,10 +47,10 @@ export const CopticDove: React.FC<{ className?: string }> = ({ className = 'w-6 
 );
 
 export const SchoolSeal: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => (
-  <div className={`relative flex items-center justify-center rounded-full border-2 border-[#c5a059] bg-[#0c1a30] text-[#c5a059] p-2 shadow-md ${className}`}>
-    <div className="absolute inset-1 rounded-full border border-dashed border-[#c5a059]/40 pointer-events-none" />
+  <div className={`relative flex items-center justify-center rounded-full border-2 border-[var(--school-accent)] bg-[var(--school-primary)] text-[var(--school-accent)] p-2 shadow-md ${className}`}>
+    <div className="absolute inset-1 rounded-full border border-dashed border-[var(--school-accent)]/40 pointer-events-none" />
     <div className="flex flex-col items-center justify-center">
-      <CopticCross className="w-8 h-8 text-[#c5a059]" />
+      <CopticCross className="w-8 h-8 text-[var(--school-accent)]" />
       <span className="text-[9px] font-bold tracking-wider mt-0.5 text-[#e0c588]">ϮϭⲢⲞⲘⲠⲒ</span>
     </div>
   </div>

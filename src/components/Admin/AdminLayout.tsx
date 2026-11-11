@@ -73,7 +73,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
   return (
     <div className="min-h-screen bg-[#faf8f5] flex flex-col no-print">
       {/* Admin Top Header */}
-      <header className="bg-[#0c1a30] text-white border-b border-[#c5a059]/30 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 shadow-md">
+      <header className="bg-[var(--school-primary)] text-white border-b border-[var(--school-accent)]/30 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 shadow-md">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -83,18 +83,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-white border border-[#c5a059] flex items-center justify-center overflow-hidden p-0.5">
+            <div className="w-9 h-9 rounded-lg bg-white border border-[var(--school-accent)] flex items-center justify-center overflow-hidden p-0.5">
               {dataService.getSettings().logo_url ? (
                 <img src={dataService.getSettings().logo_url} alt="شعار المدرسة" className="w-full h-full object-contain mix-blend-multiply" />
               ) : (
-                <CopticCross className="w-5 h-5 text-[#0c1a30]" />
+                <CopticCross className="w-5 h-5 text-[var(--school-primary)]" />
               )}
             </div>
             <div>
               <h1 className="text-sm sm:text-base font-bold font-amiri text-white leading-tight">
                 لوحة تحكم الكنترول والإدارة
               </h1>
-              <span className="text-[10px] text-[#c5a059] block">مدرسة تي اتشرومبي للألحان</span>
+              <span className="text-[10px] text-[var(--school-accent)] block">مدرسة تي اتشرومبي للألحان</span>
             </div>
           </div>
         </div>
@@ -110,7 +110,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
             onClick={onBackToWebsite}
             className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <ExternalLink className="w-3.5 h-3.5 text-[#c5a059]" />
+            <ExternalLink className="w-3.5 h-3.5 text-[var(--school-accent)]" />
             <span className="hidden sm:inline">عرض الموقع العام</span>
           </button>
 
@@ -130,7 +130,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
         {/* Sidebar Desktop */}
         <aside className="hidden lg:block w-64 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-2 h-fit sticky top-24">
           <div className="pb-3 mb-2 border-b border-slate-100 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-            <Shield className="w-4 h-4 text-[#c5a059]" />
+            <Shield className="w-4 h-4 text-[var(--school-accent)]" />
             <span>أقسام لوحة الإدارة</span>
           </div>
 
@@ -143,11 +143,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
                   onClick={() => handleTabChange(item.id)}
                   className={`w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
                     isActive
-                      ? 'bg-[#0c1a30] text-[#e0c588] shadow-sm'
-                      : 'text-slate-700 hover:bg-slate-100 hover:text-[#0c1a30]'
+                      ? 'bg-[var(--school-primary)] text-[#e0c588] shadow-sm'
+                      : 'text-slate-700 hover:bg-slate-100 hover:text-[var(--school-primary)]'
                   }`}
                 >
-                  <span className={isActive ? 'text-[#c5a059]' : 'text-slate-400'}>
+                  <span className={isActive ? 'text-[var(--school-accent)]' : 'text-slate-400'}>
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
@@ -165,7 +165,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <span className="font-bold text-sm text-[#0c1a30]">أقسام لوحة التحكم</span>
+                <span className="font-bold text-sm text-[var(--school-primary)]">أقسام لوحة التحكم</span>
                 <button onClick={() => setMobileSidebarOpen(false)} className="p-1 text-slate-500">✕</button>
               </div>
 
@@ -176,7 +176,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
                     onClick={() => handleTabChange(item.id)}
                     className={`w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
                       activeTab === item.id
-                        ? 'bg-[#0c1a30] text-[#e0c588]'
+                        ? 'bg-[var(--school-primary)] text-[#e0c588]'
                         : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >

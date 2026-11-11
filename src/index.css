@@ -2,13 +2,15 @@
 
 @layer base {
   :root {
+  --school-primary: #0c1a30;
+  --school-accent: #c5a059;
     --color-ivory: #faf8f5;
     --color-ivory-light: #fdfcf9;
     --color-ivory-dark: #f0eae1;
-    --color-navy: #0c1a30;
+    --color-navy: var(--school-primary);
     --color-navy-dark: #07101f;
     --color-navy-light: #162a4d;
-    --color-gold: #c5a059;
+    --color-gold: var(--school-accent);
     --color-gold-light: #e0c588;
     --color-gold-dark: #997836;
     --color-burgundy: #6e1e24;
@@ -27,15 +29,15 @@
 /* Custom subtle liturgical coptic pattern background */
 .coptic-pattern {
   background-color: #faf8f5;
-  background-image: radial-gradient(#c5a059 0.65px, transparent 0.65px), radial-gradient(#0c1a30 0.65px, #faf8f5 0.65px);
+  background-image: radial-gradient(var(--school-accent) 0.65px, transparent 0.65px), radial-gradient(var(--school-primary) 0.65px, #faf8f5 0.65px);
   background-size: 26px 26px;
   background-position: 0 0, 13px 13px;
   background-opacity: 0.04;
 }
 
 .coptic-cross-pattern-navy {
-  background-color: #0c1a30;
-  background-image: radial-gradient(rgba(197, 160, 89, 0.15) 1px, transparent 1px);
+  background-color: var(--school-primary);
+  background-image: radial-gradient(color-mix(in srgb, var(--school-accent) 15%, transparent) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 

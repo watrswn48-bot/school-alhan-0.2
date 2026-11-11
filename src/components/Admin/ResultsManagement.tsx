@@ -98,8 +98,8 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
       {/* Top Banner */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold font-amiri text-[#0c1a30] flex items-center gap-2">
-            <Award className="w-6 h-6 text-[#c5a059]" />
+          <h2 className="text-xl font-bold font-amiri text-[var(--school-primary)] flex items-center gap-2">
+            <Award className="w-6 h-6 text-[var(--school-accent)]" />
             <span>رصد درجات الطلاب والكنترول الإلكتروني</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
@@ -117,9 +117,9 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
           </button>
           <button
             onClick={handleSaveAllResults}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            className="flex-1 sm:flex-none px-5 py-2.5 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <Save className="w-4 h-4 text-[#c5a059]" />
+            <Save className="w-4 h-4 text-[var(--school-accent)]" />
             <span>حفظ واعتماد التغييرات</span>
           </button>
         </div>
@@ -141,7 +141,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
           <select
             value={selectedExamId}
             onChange={(e) => setSelectedExamId(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-[#0c1a30] focus:ring-2 focus:ring-[#c5a059] focus:outline-none cursor-pointer"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-[var(--school-primary)] focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none cursor-pointer"
           >
             {exams.map(ex => (
               <option key={ex.id} value={ex.id}>
@@ -159,7 +159,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ابحث بالاسم أو الكود..."
-              className="w-full pr-8 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
+              className="w-full pr-8 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none"
             />
             <Search className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5" />
           </div>
@@ -171,7 +171,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
-              <tr className="bg-[#0c1a30] text-white">
+              <tr className="bg-[var(--school-primary)] text-white">
                 <th className="py-3.5 px-4">كود الطالب</th>
                 <th className="py-3.5 px-4">اسم الطالب ثلاثي</th>
                 {examSubjects.map(es => {
@@ -179,7 +179,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
                   return (
                     <th key={es.id} className="py-3.5 px-3 text-center">
                       <div>{s?.name}</div>
-                      <div className="text-[10px] text-[#c5a059] font-mono">(العظمى: {es.max_score})</div>
+                      <div className="text-[10px] text-[var(--school-accent)] font-mono">(العظمى: {es.max_score})</div>
                     </th>
                   );
                 })}
@@ -230,7 +230,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
                             value={currentVal}
                             onChange={(e) => handleScoreChange(student.id, es.id, e.target.value, es.max_score)}
                             placeholder="—"
-                            className="w-16 px-2 py-1 text-center font-mono font-bold text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
+                            className="w-16 px-2 py-1 text-center font-mono font-bold text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none"
                           />
                         </td>
                       );
@@ -255,7 +255,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
                     <td className="py-3 px-3 text-center">
                       <button
                         onClick={() => setPreviewStudent(student)}
-                        className="p-1 rounded text-slate-500 hover:text-[#0c1a30] hover:bg-slate-100 cursor-pointer"
+                        className="p-1 rounded text-slate-500 hover:text-[var(--school-primary)] hover:bg-slate-100 cursor-pointer"
                         title="معاينة شهادة الطالب"
                       >
                         <Eye className="w-4 h-4" />
@@ -274,7 +274,7 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative text-right my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-base font-amiri text-[#0c1a30]">
+              <h3 className="font-bold text-base font-amiri text-[var(--school-primary)]">
                 شهادة الطالب: {previewStudent.full_name} ({previewStudent.student_code})
               </h3>
               <button
@@ -308,9 +308,9 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => window.print()}
-                className="px-4 py-2 bg-[#0c1a30] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-[var(--school-primary)] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer className="w-4 h-4 text-[#c5a059]" />
+                <Printer className="w-4 h-4 text-[var(--school-accent)]" />
                 <span>طباعة الشهادة الرسمية</span>
               </button>
             </div>

@@ -203,8 +203,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
       {/* Top Banner & Important Manual Code Note */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold font-amiri text-[#0c1a30] flex items-center gap-2">
-            <User className="w-6 h-6 text-[#c5a059]" />
+          <h2 className="text-xl font-bold font-amiri text-[var(--school-primary)] flex items-center gap-2">
+            <User className="w-6 h-6 text-[var(--school-accent)]" />
             <span>سجل الطلاب وقيد المراحل التعليمية</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
@@ -222,9 +222,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
           </button>
           <button
             onClick={openAddModal}
-            className="flex-1 sm:flex-none px-4 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-2.5 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <UserPlus className="w-4 h-4 text-[#c5a059]" />
+            <UserPlus className="w-4 h-4 text-[var(--school-accent)]" />
             <span>إضافة طالب جديد</span>
           </button>
         </div>
@@ -246,7 +246,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث بالاسم أو الكود أو الهاتف..."
-            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
+            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none"
           />
           <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
         </div>
@@ -255,7 +255,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#c5a059] focus:outline-none cursor-pointer"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none cursor-pointer"
           >
             <option value="all">جميع الأعوام الدراسية</option>
             {years.map(y => (
@@ -268,7 +268,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
           <select
             value={selectedStage}
             onChange={(e) => setSelectedStage(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#c5a059] focus:outline-none cursor-pointer"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none cursor-pointer"
           >
             <option value="all">جميع المراحل التعليمية</option>
             {stages.map(s => (
@@ -281,7 +281,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
           <select
             value={selectedGrade}
             onChange={(e) => setSelectedGrade(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#c5a059] focus:outline-none cursor-pointer"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none cursor-pointer"
           >
             <option value="all">جميع الصفوف</option>
             {grades.map(g => (
@@ -295,7 +295,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-700">
-            عدد الطلاب المطابقين: <span className="text-[#0c1a30] font-mono tabular-nums">{filteredStudents.length}</span>
+            عدد الطلاب المطابقين: <span className="text-[var(--school-primary)] font-mono tabular-nums">{filteredStudents.length}</span>
           </span>
           <span className="text-xs text-slate-400">إجمالي طلاب المدرسة: {students.length}</span>
         </div>
@@ -303,7 +303,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
-              <tr className="bg-[#0c1a30] text-white">
+              <tr className="bg-[var(--school-primary)] text-white">
                 <th className="py-3 px-4">كود الطالب (يدوي)</th>
                 <th className="py-3 px-4">اسم الطالب</th>
                 <th className="py-3 px-4">المرحلة الدراسية</th>
@@ -351,7 +351,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => openEditModal(st)}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#0c1a30] hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-[var(--school-primary)] hover:bg-slate-100 transition-colors cursor-pointer"
                             title="تعديل بيانات الطالب"
                           >
                             <Edit className="w-4 h-4" />
@@ -379,8 +379,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative text-right my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-bold font-amiri text-[#0c1a30] flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-[#c5a059]" />
+              <h3 className="text-lg font-bold font-amiri text-[var(--school-primary)] flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-[var(--school-accent)]" />
                 <span>{editingStudent ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد'}</span>
               </h3>
               <button
@@ -411,7 +411,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
                   placeholder="مثال: ETCH-1005"
-                  className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg font-mono font-bold text-slate-900 text-sm focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
+                  className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg font-mono font-bold text-slate-900 text-sm focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none"
                 />
                 <span className="text-[10px] text-amber-800 block mt-1">
                   ملاحظة: أدخل الكود المعتمد في السجلات الورقية للمدرسة. لا يتم توليد الكود آلياً.
@@ -429,7 +429,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="مثال: دانيال مايكل مرقص بطرس"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-[var(--school-accent)] focus:outline-none"
                 />
               </div>
 
@@ -540,7 +540,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer"
+                  className="px-6 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer"
                 >
                   حفظ في السجلات
                 </button>
@@ -567,7 +567,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
             <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-slate-700 leading-relaxed space-y-2">
               <p>هل أنت متأكد من رغبتك في حذف الطالب:</p>
               <div className="p-2.5 bg-white rounded-lg border border-red-200">
-                <div className="font-bold text-sm text-[#0c1a30]">{studentToDelete.full_name}</div>
+                <div className="font-bold text-sm text-[var(--school-primary)]">{studentToDelete.full_name}</div>
                 <div className="text-slate-500 font-mono mt-0.5">كود الطالب: {studentToDelete.student_code}</div>
               </div>
               <div className="flex items-start gap-1.5 text-red-700 font-medium pt-1">

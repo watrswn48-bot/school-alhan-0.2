@@ -349,8 +349,8 @@ export const ExcelImportCenter: React.FC = () => {
       {/* Top Banner */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold font-amiri text-[#0c1a30] flex items-center gap-2">
-            <FileSpreadsheet className="w-6 h-6 text-[#c5a059]" />
+          <h2 className="text-xl font-bold font-amiri text-[var(--school-primary)] flex items-center gap-2">
+            <FileSpreadsheet className="w-6 h-6 text-[var(--school-accent)]" />
             <span>مركز استيراد ومعالجة ملفات الإكسل (Excel Import Center)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
@@ -363,21 +363,21 @@ export const ExcelImportCenter: React.FC = () => {
             onClick={downloadStudentTemplate}
             className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#c5a059]" />
+            <Download className="w-4 h-4 text-[var(--school-accent)]" />
             <span>تحميل قالب الطلاب (.XLSX)</span>
           </button>
           <button
             onClick={downloadResultsTemplate}
             className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#c5a059]" />
+            <Download className="w-4 h-4 text-[var(--school-accent)]" />
             <span>تحميل قالب النتائج (.XLSX)</span>
           </button>
         </div>
       </div>
 
       {/* Step Indicator */}
-      <div className="bg-[#0c1a30] text-white p-4 rounded-2xl flex items-center justify-between overflow-x-auto text-xs">
+      <div className="bg-[var(--school-primary)] text-white p-4 rounded-2xl flex items-center justify-between overflow-x-auto text-xs">
         {[
           { step: 1, label: '1. رفع الملف' },
           { step: 3, label: '2. المعاينة وتعيين الأعمدة' },
@@ -389,7 +389,7 @@ export const ExcelImportCenter: React.FC = () => {
             key={s.step}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap ${
               currentStep >= s.step
-                ? 'bg-[#162a4d] text-[#e0c588] font-bold border-b border-[#c5a059]'
+                ? 'bg-[#162a4d] text-[#e0c588] font-bold border-b border-[var(--school-accent)]'
                 : 'text-slate-400'
             }`}
           >
@@ -406,7 +406,7 @@ export const ExcelImportCenter: React.FC = () => {
               <button
                 onClick={() => setImportType('students')}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  importType === 'students' ? 'bg-[#0c1a30] text-white' : 'text-slate-600'
+                  importType === 'students' ? 'bg-[var(--school-primary)] text-white' : 'text-slate-600'
                 }`}
               >
                 استيراد سجلات طلاب
@@ -414,14 +414,14 @@ export const ExcelImportCenter: React.FC = () => {
               <button
                 onClick={() => setImportType('results')}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  importType === 'results' ? 'bg-[#0c1a30] text-white' : 'text-slate-600'
+                  importType === 'results' ? 'bg-[var(--school-primary)] text-white' : 'text-slate-600'
                 }`}
               >
                 استيراد درجات ونتائج
               </button>
             </div>
 
-            <div className="border-2 border-dashed border-[#c5a059]/50 rounded-2xl p-8 hover:bg-[#faf8f5] transition-colors relative cursor-pointer">
+            <div className="border-2 border-dashed border-[var(--school-accent)]/50 rounded-2xl p-8 hover:bg-[#faf8f5] transition-colors relative cursor-pointer">
               <input
                 type="file"
                 accept=".xlsx, .xls, .csv"
@@ -433,7 +433,7 @@ export const ExcelImportCenter: React.FC = () => {
                   <Upload className="w-7 h-7" />
                 </div>
                 <div>
-                  <p className="font-bold text-sm text-[#0c1a30]">
+                  <p className="font-bold text-sm text-[var(--school-primary)]">
                     اضغط هنا لاختيار ملف الإكسل أو اسحبه داخل هذا المربع
                   </p>
                   <p className="text-xs text-slate-500 mt-1">يدعم ملفات (.xlsx, .csv)</p>
@@ -456,7 +456,7 @@ export const ExcelImportCenter: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div>
-              <h3 className="text-lg font-bold font-amiri text-[#0c1a30]">
+              <h3 className="text-lg font-bold font-amiri text-[var(--school-primary)]">
                 الخطوة 2: معاينة البيانات وتعيين أعمدة الإكسل
               </h3>
               <p className="text-xs text-slate-500">
@@ -473,10 +473,10 @@ export const ExcelImportCenter: React.FC = () => {
               </button>
               <button
                 onClick={runValidation}
-                className="px-5 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
+                className="px-5 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
               >
                 <span>فحص البيانات والتحقق</span>
-                <ArrowLeft className="w-4 h-4 text-[#c5a059]" />
+                <ArrowLeft className="w-4 h-4 text-[var(--school-accent)]" />
               </button>
             </div>
           </div>
@@ -590,7 +590,7 @@ export const ExcelImportCenter: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div>
-              <h3 className="text-lg font-bold font-amiri text-[#0c1a30]">
+              <h3 className="text-lg font-bold font-amiri text-[var(--school-primary)]">
                 الخطوة 3: نتائج فحص وتدقيق البيانات
               </h3>
               <p className="text-xs text-slate-500">
@@ -694,7 +694,7 @@ export const ExcelImportCenter: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <h3 className="text-2xl font-bold font-amiri text-[#0c1a30]">
+            <h3 className="text-2xl font-bold font-amiri text-[var(--school-primary)]">
               اكتملت عملية الاستيراد بنجاح!
             </h3>
             <p className="text-xs text-slate-500">
@@ -720,7 +720,7 @@ export const ExcelImportCenter: React.FC = () => {
           <div className="pt-4 flex items-center justify-center gap-3">
             <button
               onClick={resetWizard}
-              className="px-6 py-2.5 bg-[#0c1a30] text-white text-xs font-bold rounded-xl cursor-pointer shadow"
+              className="px-6 py-2.5 bg-[var(--school-primary)] text-white text-xs font-bold rounded-xl cursor-pointer shadow"
             >
               استيراد ملف جديد
             </button>
@@ -730,8 +730,8 @@ export const ExcelImportCenter: React.FC = () => {
 
       {/* Import History Table */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-        <h3 className="font-bold text-sm text-[#0c1a30] flex items-center gap-2">
-          <History className="w-4 h-4 text-[#c5a059]" />
+        <h3 className="font-bold text-sm text-[var(--school-primary)] flex items-center gap-2">
+          <History className="w-4 h-4 text-[var(--school-accent)]" />
           <span>سجل عمليات الاستيراد السابقة (Import Audit Log)</span>
         </h3>
 

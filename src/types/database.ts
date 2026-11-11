@@ -181,6 +181,8 @@ export interface SchoolSettings {
   results_disclaimer: string;
   academic_year_id: string;
   about_text?: string;
+  primary_color?: string;
+  accent_color?: string;
   updated_at: string;
 }
 

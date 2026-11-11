@@ -92,7 +92,11 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     const { error } = await query;
     if (error) { setSaveMessage('تعذر حفظ إعدادات المدرسة: ' + error.message); return; }
     const { data } = await supabase.from('school_settings').select('*').limit(1).maybeSingle();
-    if (data) setSettings(prev => ({ ...prev, ...data }));
+    if (data) {
+      setSettings(prev => ({ ...prev, ...data }));
+      if (data.primary_color) document.documentElement.style.setProperty('--school-primary', data.primary_color);
+      if (data.accent_color) document.documentElement.style.setProperty('--school-accent', data.accent_color);
+    }
     await dataService.refresh();
     setSaveMessage('تم حفظ إعدادات المدرسة في قاعدة البيانات.');
   };

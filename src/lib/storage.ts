@@ -55,6 +55,8 @@ export const INITIAL_SETTINGS: SchoolSettings = {
   results_disclaimer: 'النتائج المعروضة هي النتائج التي اعتمدتها إدارة المدرسة ونشرتها.',
   academic_year_id: '',
   about_text: '',
+  primary_color: '#0c1a30',
+  accent_color: '#c5a059',
   updated_at: new Date().toISOString(),
 };
 

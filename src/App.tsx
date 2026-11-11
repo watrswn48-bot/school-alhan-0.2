@@ -42,6 +42,18 @@ export default function App() {
     return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
 
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    supabase.from('school_settings').select('primary_color,accent_color').limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        if (data.primary_color) document.documentElement.style.setProperty('--school-primary', data.primary_color);
+        if (data.accent_color) document.documentElement.style.setProperty('--school-accent', data.accent_color);
+      });
+  }, []);
+
   const handleAdminLogout = async () => {
     const supabase = getSupabaseClient();
     if (supabase) await supabase.auth.signOut();
@@ -52,7 +64,7 @@ export default function App() {
 
   const showPublicShell = currentTab !== 'admin' || !activeAdmin;
   return (
-    <div className="min-h-screen flex flex-col bg-[#faf8f5] text-slate-900 selection:bg-[#c5a059]/30 selection:text-[#0c1a30] font-sans">
+    <div className="min-h-screen flex flex-col bg-[#faf8f5] text-slate-900 selection:bg-[var(--school-accent)]/30 selection:text-[var(--school-primary)] font-sans">
       {showPublicShell && <Navbar currentTab={currentTab} onSelectTab={setCurrentTab} isAdminLoggedIn={Boolean(activeAdmin)} />}
       <main className="flex-1 flex flex-col">
         {currentTab === 'home' && <HomePage onOpenResults={() => setCurrentTab('results')} />}

@@ -72,14 +72,14 @@ export const StudentResults: React.FC = () => {
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       {/* Title & Introduction */}
       <div className="text-center mb-8 no-print">
-        <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border-2 border-[#c5a059]/50 shadow-md mb-3 w-16 h-16 overflow-hidden">
+        <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border-2 border-[var(--school-accent)]/50 shadow-md mb-3 w-16 h-16 overflow-hidden">
           {settings.logo_url ? (
             <img src={settings.logo_url} alt={settings.school_name} className="w-full h-full object-contain mix-blend-multiply" />
           ) : (
-            <Award className="w-8 h-8 text-[#0c1a30]" />
+            <Award className="w-8 h-8 text-[var(--school-primary)]" />
           )}
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold font-amiri text-[#0c1a30] mb-2">
+        <h1 className="text-3xl sm:text-4xl font-bold font-amiri text-[var(--school-primary)] mb-2">
           بوابة الاستعلام عن نتائج الطلاب
         </h1>
         <p className="text-sm text-slate-600 max-w-2xl mx-auto leading-relaxed">
@@ -88,7 +88,7 @@ export const StudentResults: React.FC = () => {
       </div>
 
       {/* Search Input Box */}
-      <div className="bg-white rounded-2xl border border-[#c5a059]/30 shadow-md p-6 sm:p-8 mb-8 no-print">
+      <div className="bg-white rounded-2xl border border-[var(--school-accent)]/30 shadow-md p-6 sm:p-8 mb-8 no-print">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -96,7 +96,7 @@ export const StudentResults: React.FC = () => {
           }}
           className="space-y-4"
         >
-          <label htmlFor="studentCode" className="block text-sm font-bold text-[#0c1a30]">
+          <label htmlFor="studentCode" className="block text-sm font-bold text-[var(--school-primary)]">
             كود الطالب المسجل بالكنترول <span className="text-red-600">*</span>
           </label>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -108,20 +108,20 @@ export const StudentResults: React.FC = () => {
                 value={studentCodeInput}
                 onChange={(e) => setStudentCodeInput(e.target.value)}
                 placeholder="مثال: ETCH-1001"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[#c5a059] focus:bg-white text-slate-900"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--school-accent)] focus:bg-white text-slate-900"
               />
               <Search className="w-5 h-5 text-slate-400 absolute left-3 top-3.5" />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-[#0c1a30] to-[#162a4d] text-white hover:from-[#162a4d] hover:to-[#0c1a30] font-bold text-base rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              className="px-8 py-3 bg-gradient-to-r from-[var(--school-primary)] to-[#162a4d] text-white hover:from-[#162a4d] hover:to-[var(--school-primary)] font-bold text-base rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
               {loading ? (
                 <span>جاري البحث في السجلات...</span>
               ) : (
                 <>
-                  <Award className="w-5 h-5 text-[#c5a059]" />
+                  <Award className="w-5 h-5 text-[var(--school-accent)]" />
                   <span>عرض النتيجة</span>
                 </>
               )}
@@ -165,7 +165,7 @@ export const StudentResults: React.FC = () => {
                   onClick={() => setSelectedExamIndex(idx)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                     selectedExamIndex === idx
-                      ? 'bg-[#0c1a30] text-white shadow-sm'
+                      ? 'bg-[var(--school-primary)] text-white shadow-sm'
                       : 'bg-white text-slate-700 hover:bg-slate-200'
                   }`}
                 >
@@ -183,15 +183,15 @@ export const StudentResults: React.FC = () => {
             </div>
             <button
               onClick={handlePrint}
-              className="px-4 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white text-xs font-bold rounded-lg shadow flex items-center gap-2 transition-all cursor-pointer"
+              className="px-4 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-lg shadow flex items-center gap-2 transition-all cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-[#c5a059]" />
+              <Printer className="w-4 h-4 text-[var(--school-accent)]" />
               <span>طباعة كشف الدرجات / الشهادة الرسمية</span>
             </button>
           </div>
 
           {/* The Certificate / Report Card (PRINT AREA) */}
-          <div className="print-area bg-white rounded-2xl border-2 border-[#c5a059] shadow-xl p-6 sm:p-10 relative overflow-hidden">
+          <div className="print-area bg-white rounded-2xl border-2 border-[var(--school-accent)] shadow-xl p-6 sm:p-10 relative overflow-hidden">
             {/* Watermark in background - Updated to Custom School Logo */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
               {settings.logo_url ? (
@@ -201,16 +201,16 @@ export const StudentResults: React.FC = () => {
                   className="w-80 h-80 sm:w-[460px] sm:h-[460px] object-contain opacity-[0.06] mix-blend-multiply filter contrast-125 select-none pointer-events-none"
                 />
               ) : (
-                <CopticCross size={420} className="text-[#0c1a30] opacity-[0.03]" />
+                <CopticCross size={420} className="text-[var(--school-primary)] opacity-[0.03]" />
               )}
             </div>
 
             {/* Certificate Header */}
-            <div className="border-b-2 border-[#c5a059]/40 pb-6 mb-6 relative z-10">
+            <div className="border-b-2 border-[var(--school-accent)]/40 pb-6 mb-6 relative z-10">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
                 {/* School & Church Branding */}
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-[#c5a059] flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-[var(--school-accent)] flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
                     {settings.logo_url ? (
                       <img
                         src={settings.logo_url}
@@ -218,14 +218,14 @@ export const StudentResults: React.FC = () => {
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     ) : (
-                      <CopticCross className="w-10 h-10 text-[#0c1a30]" />
+                      <CopticCross className="w-10 h-10 text-[var(--school-primary)]" />
                     )}
                   </div>
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold font-amiri text-[#0c1a30]">
+                    <h2 className="text-xl sm:text-2xl font-bold font-amiri text-[var(--school-primary)]">
                       {settings.school_name}
                     </h2>
-                    <p className="text-xs text-[#c5a059] font-semibold">{settings.church_name}</p>
+                    <p className="text-xs text-[var(--school-accent)] font-semibold">{settings.church_name}</p>
                     <p className="text-[11px] text-slate-500">{settings.parish_name}</p>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export const StudentResults: React.FC = () => {
                   <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">
                     كود الاستعلام: {currentResult.student.student_code}
                   </span>
-                  <div className="mt-1 px-3 py-1 bg-amber-50 border border-[#c5a059] rounded-md text-xs font-bold text-[#800020]">
+                  <div className="mt-1 px-3 py-1 bg-amber-50 border border-[var(--school-accent)] rounded-md text-xs font-bold text-[#800020]">
                     شهادة تقييم ألحان كنسية معتمدة
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1">
@@ -249,7 +249,7 @@ export const StudentResults: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-[#faf8f5] rounded-xl border border-slate-200 mb-6 text-sm">
               <div>
                 <span className="text-xs text-slate-500 block">اسم الطالب ثلاثي:</span>
-                <span className="font-bold text-base text-[#0c1a30]">{currentResult.student.full_name}</span>
+                <span className="font-bold text-base text-[var(--school-primary)]">{currentResult.student.full_name}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">المستوى والمرحلة:</span>
@@ -282,7 +282,7 @@ export const StudentResults: React.FC = () => {
             <div className="overflow-x-auto mb-6">
               <table className="w-full text-right border-collapse">
                 <thead>
-                  <tr className="bg-[#0c1a30] text-white text-xs">
+                  <tr className="bg-[var(--school-primary)] text-white text-xs">
                     <th className="py-3 px-4 rounded-r-lg">م</th>
                     <th className="py-3 px-4">المادة الدراسية / الفرع الكنسي</th>
                     <th className="py-3 px-4 text-center">الدرجة العظمى</th>
@@ -309,13 +309,13 @@ export const StudentResults: React.FC = () => {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-amber-50/70 border-t-2 border-[#c5a059] font-bold text-sm text-slate-900">
+                  <tr className="bg-amber-50/70 border-t-2 border-[var(--school-accent)] font-bold text-sm text-slate-900">
                     <td colSpan={2} className="py-3.5 px-4 text-base">المجموع الكلي للدرجات</td>
                     <td className="py-3.5 px-4 text-center font-mono tabular-nums text-base">{currentResult.total_max_score}</td>
                     <td className="py-3.5 px-4 text-center font-mono tabular-nums text-slate-500">
                       {(currentResult.total_max_score / 2).toFixed(1)}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-mono tabular-nums text-lg text-[#0c1a30]">
+                    <td className="py-3.5 px-4 text-center font-mono tabular-nums text-lg text-[var(--school-primary)]">
                       {currentResult.total_score}
                     </td>
                   </tr>
@@ -324,9 +324,9 @@ export const StudentResults: React.FC = () => {
             </div>
 
             {/* Overall Score & Evaluation Banner */}
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-[#0c1a30] to-[#162a4d] text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-md mb-8">
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-[var(--school-primary)] to-[#162a4d] text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-md mb-8">
               <div className="text-center sm:text-right space-y-1">
-                <span className="text-xs text-[#c5a059] font-semibold tracking-wider block">النسبة المئوية الإجمالية</span>
+                <span className="text-xs text-[var(--school-accent)] font-semibold tracking-wider block">النسبة المئوية الإجمالية</span>
                 <div className="text-3xl sm:text-4xl font-extrabold font-mono text-white tracking-tight">
                   {currentResult.percentage}%
                 </div>
@@ -344,7 +344,7 @@ export const StudentResults: React.FC = () => {
 
               <div className="shrink-0">
                 {settings.logo_url ? (
-                  <div className="w-20 h-20 rounded-2xl bg-white p-2 border-2 border-[#c5a059] flex items-center justify-center shadow-lg">
+                  <div className="w-20 h-20 rounded-2xl bg-white p-2 border-2 border-[var(--school-accent)] flex items-center justify-center shadow-lg">
                     <img
                       src={settings.logo_url}
                       alt={settings.school_name}
@@ -368,7 +368,7 @@ export const StudentResults: React.FC = () => {
               </div>
               <div className="space-y-4">
                 <p className="font-bold">خاتم المدرسة والكنترول</p>
-                <div className="w-16 h-16 mx-auto rounded-full border-2 border-dashed border-[#c5a059] bg-white flex items-center justify-center p-1.5 overflow-hidden shadow-2xs">
+                <div className="w-16 h-16 mx-auto rounded-full border-2 border-dashed border-[var(--school-accent)] bg-white flex items-center justify-center p-1.5 overflow-hidden shadow-2xs">
                   {settings.logo_url ? (
                     <img
                       src={settings.logo_url}
@@ -376,7 +376,7 @@ export const StudentResults: React.FC = () => {
                       className="w-full h-full object-contain mix-blend-multiply opacity-90"
                     />
                   ) : (
-                    <span className="text-[9px] text-[#c5a059] font-bold">خاتم رسمي</span>
+                    <span className="text-[9px] text-[var(--school-accent)] font-bold">خاتم رسمي</span>
                   )}
                 </div>
               </div>
