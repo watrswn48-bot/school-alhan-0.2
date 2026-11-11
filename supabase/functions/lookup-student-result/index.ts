@@ -131,7 +131,8 @@ Deno.serve(async (req: Request) => {
           .order("display_order"),
         supabase.from("results")
           .select("id, exam_subject_id, score")
-          .eq("student_id", student.id),
+          .eq("student_id", student.id)
+          .eq("is_published", true),
         supabase.from("grading_rules")
           .select("academic_year_id, minimum_percentage, maximum_percentage, evaluation_label, is_pass")
           .in("academic_year_id", yearIds),

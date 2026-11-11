@@ -138,6 +138,8 @@ export interface Result {
   score: number;
   created_at: string;
   updated_at: string;
+  is_published?: boolean;
+  published_at?: string | null;
 }
 
 export interface GradingRule {

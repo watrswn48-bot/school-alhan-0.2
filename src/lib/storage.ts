@@ -517,7 +517,9 @@ class DataService {
     const updatedRecord = {
       ...result,
       updated_at: new Date().toISOString(),
-      created_at: result.created_at || new Date().toISOString()
+      created_at: result.created_at || new Date().toISOString(),
+      is_published: false,
+      published_at: null
     };
 
     if (idx >= 0) list[idx] = updatedRecord;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { dataService } from '../../lib/storage';
+import { getSupabaseClient } from '../../lib/supabase';
 import { Exam, ExamSubject, Student, Result } from '../../types/database';
 import { Award, Save, Search, CheckCircle2, AlertCircle, FileSpreadsheet, Eye, Printer } from 'lucide-react';
 import { SchoolSeal, CopticCross } from '../CopticIcons';
@@ -20,6 +21,11 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
   // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const enrollments = dataService.getEnrollments();
+  const activeAdmin = dataService.getActiveAdmin();
+  const canPublishResults = activeAdmin?.role === 'super_admin';
 
   // Local draft scores: key = `${studentId}_${examSubjectId}` -> score
   const [scoresDraft, setScoresDraft] = useState<Record<string, number>>(() => {
@@ -55,40 +61,130 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
     }));
   };
 
-  const handleSaveAllResults = () => {
-    setStatusMessage(null);
-    let savedCount = 0;
+  const handleSaveAllResults = async () => {
+    if (!selectedExam || !examSubjects.length) {
+      setStatusMessage({ type: 'error', text: 'اختر امتحانًا وأضف مواده أولاً.' });
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatusMessage({ type: 'error', text: 'تعذر الاتصال بقاعدة البيانات.' });
+      return;
+    }
 
-    for (const [key, score] of Object.entries(scoresDraft)) {
-      const [studentId, examSubjectId] = key.split('_');
-      if (studentId && examSubjectId) {
-        dataService.saveResult({
-          id: `res-${studentId}-${examSubjectId}`,
+    setSaving(true);
+    setStatusMessage(null);
+    try {
+      const examSubjectIds = examSubjects.map(item => item.id);
+      const subjectIdSet = new Set(examSubjectIds);
+      const enrolledStudentIds = new Set(filteredStudents.map(student => student.id));
+      const changedRows = Object.entries(scoresDraft).flatMap(([key, score]) => {
+        const [studentId, examSubjectId] = key.split('_');
+        if (!studentId || !subjectIdSet.has(examSubjectId) || !enrolledStudentIds.has(studentId)) return [];
+        const previous = results.find(item => item.student_id === studentId && item.exam_subject_id === examSubjectId);
+        if (previous && Number(previous.score) === Number(score)) return [];
+        return [{
           student_id: studentId,
           exam_subject_id: examSubjectId,
           score: Number(score),
-          created_at: new Date().toISOString(),
+          is_published: false,
+          published_at: null,
           updated_at: new Date().toISOString(),
-        });
-        savedCount++;
+        }];
+      });
+      const rowsToDelete = results.filter(item =>
+        subjectIdSet.has(item.exam_subject_id) &&
+        enrolledStudentIds.has(item.student_id) &&
+        scoresDraft[`${item.student_id}_${item.exam_subject_id}`] === undefined
+      );
+
+      if (!changedRows.length && !rowsToDelete.length) {
+        setStatusMessage({ type: 'success', text: 'لا توجد تغييرات جديدة لحفظها.' });
+        return;
       }
+
+      // Any edit withdraws the complete exam result set until the super admin approves it again.
+      const { error: withdrawError } = await supabase.from('results')
+        .update({ is_published: false, published_at: null })
+        .in('exam_subject_id', examSubjectIds)
+        .eq('is_published', true);
+      if (withdrawError) throw withdrawError;
+
+      if (rowsToDelete.length) {
+        const { error } = await supabase.from('results')
+          .delete().in('id', rowsToDelete.map(item => item.id));
+        if (error) throw error;
+      }
+
+      if (changedRows.length) {
+        const { error } = await supabase.from('results')
+          .upsert(changedRows, { onConflict: 'student_id,exam_subject_id' });
+        if (error) throw error;
+      }
+
+      const { data, error } = await supabase.from('results').select('*');
+      if (error) throw error;
+      setResults(data ?? []);
+      setStatusMessage({
+        type: 'success',
+        text: `تم حفظ ${changedRows.length} درجة وحذف ${rowsToDelete.length} كمسودة. يجب على المسؤول الرئيسي إعادة اعتماد نتائج الامتحان قبل ظهورها للطلاب.`
+      });
+    } catch (error) {
+      setStatusMessage({ type: 'error', text: 'تعذر حفظ الدرجات: ' + (error as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublishResults = async () => {
+    if (!canPublishResults || !selectedExam || !examSubjects.length) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatusMessage({ type: 'error', text: 'تعذر الاتصال بقاعدة البيانات.' });
+      return;
     }
 
-    setResults(dataService.getResults());
-    setStatusMessage({
-      type: 'success',
-      text: `تم حفظ واعتماد ${savedCount} سجل درجات بنجاح في قاعدة بيانات الكنترول.`
-    });
+    setPublishing(true);
+    setStatusMessage(null);
+    try {
+      const examSubjectIds = examSubjects.map(item => item.id);
+      const { data: publishedRows, error: publishError } = await supabase.from('results')
+        .update({ is_published: true, published_at: new Date().toISOString() })
+        .in('exam_subject_id', examSubjectIds)
+        .select('id');
+      if (publishError) throw publishError;
+      if (!publishedRows?.length) {
+        setStatusMessage({ type: 'error', text: 'لا توجد درجات محفوظة لهذا الامتحان لاعتمادها.' });
+        return;
+      }
 
-    setTimeout(() => {
-      setStatusMessage(null);
-    }, 4000);
+      const { error: examError } = await supabase.from('exams')
+        .update({ is_published: true })
+        .eq('id', selectedExam.id);
+      if (examError) throw examError;
+
+      const { data, error } = await supabase.from('results').select('*');
+      if (error) throw error;
+      setResults(data ?? []);
+      setStatusMessage({ type: 'success', text: `تم اعتماد ونشر ${publishedRows.length} درجة للطلاب بنجاح.` });
+    } catch (error) {
+      setStatusMessage({ type: 'error', text: 'تعذر اعتماد النتائج: ' + (error as Error).message });
+    } finally {
+      setPublishing(false);
+    }
   };
 
   // Filtered students
-  const filteredStudents = students.filter(s => {
+  const assignedStudentIds = new Set(enrollments.filter(enrollment =>
+    enrollment.academic_year_id === selectedExam?.academic_year_id &&
+    (!selectedExam?.stage_id || enrollment.stage_id === selectedExam.stage_id) &&
+    (!selectedExam?.grade_id || enrollment.grade_id === selectedExam.grade_id) &&
+    (!selectedExam?.class_id || enrollment.class_id === selectedExam.class_id)
+  ).map(enrollment => enrollment.student_id));
+  const filteredStudents = students.filter(student => {
     const q = searchQuery.toLowerCase();
-    return s.full_name.toLowerCase().includes(q) || s.student_code.toLowerCase().includes(q);
+    return assignedStudentIds.has(student.id) &&
+      (student.full_name.toLowerCase().includes(q) || student.student_code.toLowerCase().includes(q));
   });
 
   const totalMaxScore = examSubjects.reduce((acc, curr) => acc + curr.max_score, 0);
@@ -117,11 +213,22 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
           </button>
           <button
             onClick={handleSaveAllResults}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            disabled={saving || !selectedExam}
+            className="flex-1 sm:flex-none px-5 py-2.5 bg-[var(--school-primary)] hover:bg-[#162a4d] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
           >
             <Save className="w-4 h-4 text-[var(--school-accent)]" />
-            <span>حفظ واعتماد التغييرات</span>
+            <span>{saving ? 'جارٍ حفظ المسودة...' : 'حفظ الدرجات كمسودة'}</span>
           </button>
+          {canPublishResults && (
+            <button
+              onClick={handlePublishResults}
+              disabled={publishing || !selectedExam || !results.some(item => examSubjects.some(es => es.id === item.exam_subject_id))}
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{publishing ? 'جارٍ الاعتماد...' : 'اعتماد ونشر للطلاب'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -131,6 +238,12 @@ export const ResultsManagement: React.FC<ResultsManagementProps> = ({ onOpenExce
         }`}>
           {statusMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
           <span className="font-bold">{statusMessage.text}</span>
+        </div>
+      )}
+
+      {selectedExam?.is_published && (
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+          تعديل أي درجة محفوظة سيسحب نشر نتائج الامتحان بالكامل مؤقتًا، ولن تظهر مرة أخرى إلا بعد اعتماد المسؤول الرئيسي.
         </div>
       )}
 
