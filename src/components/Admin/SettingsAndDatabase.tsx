@@ -5,8 +5,8 @@ import {
 } from '../../lib/supabase';
 import { SchoolSettings, GradingRule, AdminProfile, UserRole } from '../../types/database';
 import {
-  Settings, Database, Save, CheckCircle2, AlertCircle, AlertTriangle, Copy, Key,
-  Shield, RotateCcw, Code, ExternalLink, Terminal, UserPlus, Trash2,
+  Settings, Database, Save, CheckCircle2, AlertCircle, AlertTriangle, Key,
+  Shield, RotateCcw, ExternalLink, UserPlus, Trash2,
   UserCheck, UserX, Lock, Mail, User, ShieldAlert, Upload, Image as ImageIcon, Link as LinkIcon
 } from 'lucide-react';
 import { CopticCross } from '../CopticIcons';
@@ -60,12 +60,9 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
   // Supabase connection state
   const creds = getSupabaseCredentials();
   const [supabaseUrl] = useState(creds.url);
-  const [supabaseKey] = useState(creds.key);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const [copiedSql, setCopiedSql] = useState(false);
-  const [copiedFunction, setCopiedFunction] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -133,20 +130,10 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTestingConnection(true);
-    setConnectionTestResult(null);
-
-    const test = await testSupabaseConnection();
-    setTestingConnection(false);
-    setConnectionTestResult(test);
-  };
-
   const handleTestConnectionNow = async () => {
     setTestingConnection(true);
     setConnectionTestResult(null);
-    const test = await testSupabaseConnection(supabaseUrl, supabaseKey);
+    const test = await testSupabaseConnection();
     setTestingConnection(false);
     setConnectionTestResult(test);
   };
@@ -174,16 +161,6 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const copyToClipboard = (text: string, isFunc = false) => {
-    navigator.clipboard.writeText(text);
-    if (isFunc) {
-      setCopiedFunction(true);
-      setTimeout(() => setCopiedFunction(false), 2500);
-    } else {
-      setCopiedSql(true);
-      setTimeout(() => setCopiedSql(false), 2500);
-    }
-  };
 
   // New admin account form state
   const [showAddAdminForm, setShowAddAdminForm] = useState(false);
@@ -385,7 +362,6 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     else setEvents(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
   };
 
-  const sqlCodeSample = 'تم تطبيق ملفات التهيئة والتحديث على مشروع t-etchrompi-school. ملفات الترحيل المعتمدة محفوظة داخل مجلد supabase/migrations في مستودع المدرسة. لا تلصق ملفات SQL قديمة من هذه الشاشة.';
 
   return (
     <div className="space-y-6">
@@ -1074,121 +1050,55 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
         </div>
       )}
 
-      {/* 4. Supabase Hub & SQL Center */}
+      {/* Supabase project status: this school is already connected to its approved project. */}
       {activeTab === 'supabase' && (
-        <div className="space-y-6">
-          {/* Connection Settings Box */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-[#c5a059]" />
-                <h3 className="font-bold text-sm text-[#0c1a30] font-amiri">
-                  إعدادات الاتصال بـ Supabase (PostgreSQL & Auth & Edge Functions)
-                </h3>
-              </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                creds.isConfigured ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {creds.isConfigured ? 'تمت إضافة البيانات' : 'يعمل بالوضع المحلي المدمج'}
-              </span>
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <Database className="w-6 h-6 text-[#c5a059]" />
+            <div>
+              <h3 className="font-bold text-base text-[#0c1a30] font-amiri">اتصال قاعدة بيانات المدرسة</h3>
+              <p className="text-xs text-slate-500 mt-1">المشروع المعتمد: t-etchrompi-school</p>
             </div>
-
-            <form onSubmit={handleSaveSupabaseConfig} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    رابط مشروع Supabase (Project URL)
-                  </label>
-                  <input
-                    type="url"
-                    dir="ltr"
-                    value={supabaseUrl}
-                    readOnly
-                    placeholder="https://xyzcompany.supabase.co"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    مفتاح الوصول العام (Anon Key)
-                  </label>
-                  <input
-                    type="password"
-                    dir="ltr"
-                    value={supabaseKey}
-                    readOnly
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {connectionTestResult && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 text-xs ${
-                  connectionTestResult.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  {connectionTestResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
-                  <span>{connectionTestResult.message}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleTestConnectionNow}
-                  disabled={testingConnection || !supabaseUrl}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer disabled:opacity-50"
-                >
-                  {testingConnection ? 'جاري الفحص...' : 'فحص الاتصال فقط'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={testingConnection}
-                  className="px-6 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer disabled:opacity-50"
-                >
-                  {testingConnection ? 'جاري الفحص والحفظ...' : 'حفظ واختبار الربط'}
-                </button>
-              </div>
-            </form>
+            <span className="mr-auto text-xs px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800">
+              إعدادات المشروع مثبتة
+            </span>
           </div>
 
-          {/* Setup Guide in Arabic */}
-          <div className="bg-[#faf8f5] rounded-2xl border border-[#c5a059]/40 p-6 space-y-4 text-xs text-slate-700">
-            <h4 className="font-bold text-sm text-[#0c1a30] font-amiri flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#c5a059]" />
-              <span>خطوات تهيئة قاعدة بيانات Supabase الرسمية لمدرسة الألحان:</span>
-            </h4>
-            <ol className="list-decimal list-inside space-y-2 leading-relaxed">
-              <li>سجل دخولك إلى لوحة تحكم <strong>Supabase (supabase.com)</strong> وأنشئ مشروعاً جديداً باسم <code>t-etchrompi-school</code>.</li>
-              <li>انتقل إلى تبويب <strong>SQL Editor</strong>، واضغط على <strong>New Query</strong>.</li>
-              <li>انسخ كود ملف التهيئة أدناه (الموجود أيضاً في <code>supabase/migrations/20261105000000_school_system.sql</code>) والصقه ثم اضغط <strong>RUN</strong>.</li>
-              <li>سيتم إنشاء جميع الجداول الـ 16، والقيود، والفهارس، وسياسات الأمان (RLS).</li>
-              <li>انسخ <strong>Project URL</strong> و <strong>Anon Public Key</strong> من إعدادات <strong>Project Settings &gt; API</strong> وضعهما في الحقول أعلاه.</li>
-            </ol>
-          </div>
-
-          {/* SQL Viewer & Copy */}
-          <div className="bg-[#0c1a30] text-slate-100 rounded-2xl p-6 border-2 border-[#c5a059]/40 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-              <div className="flex items-center gap-2 text-xs font-mono text-[#e0c588]">
-                <Terminal className="w-4 h-4" />
-                <span>ملف SQL Migration الكامل (18 جدول + RLS + قيود الأكواد المانوية)</span>
-              </div>
-              <button
-                onClick={() => copyToClipboard(sqlCodeSample, false)}
-                className="px-3 py-1.5 bg-[#c5a059] hover:bg-[#d4af37] text-[#0c1a30] rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
-              >
-                {copiedSql ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedSql ? 'تم النسخ للحافظة!' : 'نسخ كود الـ SQL'}</span>
-              </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">رابط المشروع</label>
+              <input readOnly dir="ltr" value={supabaseUrl}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-700" />
             </div>
-
-            <pre className="p-4 bg-[#07101f] rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-64 border border-slate-800">
-              {sqlCodeSample}
-            </pre>
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">حالة الاتصال</label>
+              <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
+                {connectionTestResult ? connectionTestResult.message : 'لم يتم إجراء فحص اتصال في هذه الجلسة.'}
+              </div>
+            </div>
           </div>
-        </div>
+
+          {connectionTestResult && (
+            <div role="status" className={`p-3 rounded-xl flex items-center gap-2 text-xs ${
+              connectionTestResult.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              {connectionTestResult.success
+                ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                : <AlertCircle className="w-4 h-4 text-red-600" />}
+              <span>{connectionTestResult.message}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              لا تغيّر بيانات الربط من لوحة الموقع. مفاتيح الخادم السرية محفوظة داخل إعدادات Supabase ولا تدخل في ملفات الواجهة.
+            </p>
+            <button type="button" onClick={handleTestConnectionNow} disabled={testingConnection}
+              className="px-5 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer disabled:opacity-50">
+              {testingConnection ? 'جارٍ فحص الاتصال...' : 'فحص الاتصال بقاعدة البيانات'}
+            </button>
+          </div>
+        </section>
       )}
 
       {/* In-App Reset Database Confirmation Modal */}
