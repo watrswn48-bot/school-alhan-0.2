@@ -79,6 +79,8 @@ class DataService {
   private termMap = new Map<string, string>();
   private initialized = false;
   private initializing: Promise<void> | null = null;
+  private pendingWrites: Promise<void> = Promise.resolve();
+  private persistenceError: Error | null = null;
 
   private get<T>(key: string, defaultVal: T): T {
     return (this.cache.has(key) ? this.cache.get(key) : defaultVal) as T;
@@ -154,26 +156,42 @@ class DataService {
     const client = getSupabaseClient();
     if (!client || key === STORAGE_KEYS.ACTIVE_ADMIN || key === STORAGE_KEYS.ADMINS) return;
     const table = this.tableForKey(key);
-    if (key === STORAGE_KEYS.SETTINGS) {
-      const row = this.toDatabaseRow(key, value);
-      void client.from('school_settings').upsert(row).then(({ error }) => {
-        if (error) console.error('Supabase settings write failed:', error.message);
-      });
-      return;
-    }
-    if (!table || !Array.isArray(value)) return;
-    const rows = value.map(item => this.toDatabaseRow(key, item));
-    if (rows.length) {
-      void client.from(table).upsert(rows).then(({ error }) => {
-        if (error) console.error(`Supabase ${table} write failed:`, error.message);
-      });
-    }
-    const currentIds = new Set(rows.map(row => row.id));
-    const removed = (Array.isArray(previous) ? previous : []).filter((row: any) => row?.id && !currentIds.has(this.uuid(row.id)));
-    for (const row of removed) {
-      void client.from(table).delete().eq('id', this.uuid(row.id)).then(({ error }) => {
-        if (error) console.error(`Supabase ${table} delete failed:`, error.message);
-      });
+
+    const write = async () => {
+      if (key === STORAGE_KEYS.SETTINGS) {
+        const { error } = await client.from('school_settings').upsert(this.toDatabaseRow(key, value));
+        if (error) throw error;
+        return;
+      }
+      if (!table || !Array.isArray(value)) return;
+
+      const rows = value.map(item => this.toDatabaseRow(key, item));
+      if (rows.length) {
+        const { error } = await client.from(table).upsert(rows);
+        if (error) throw error;
+      }
+
+      const currentIds = new Set(rows.map(row => row.id));
+      const removed = (Array.isArray(previous) ? previous : [])
+        .filter((row: any) => row?.id && !currentIds.has(this.uuid(row.id)));
+      for (const row of removed) {
+        const { error } = await client.from(table).delete().eq('id', this.uuid(row.id));
+        if (error) throw error;
+      }
+    };
+
+    this.pendingWrites = this.pendingWrites.then(write).catch(error => {
+      this.persistenceError = error instanceof Error ? error : new Error(String(error));
+      console.error('Supabase data write failed:', this.persistenceError.message);
+    });
+  }
+
+  async flush(): Promise<void> {
+    await this.pendingWrites;
+    if (this.persistenceError) {
+      const error = this.persistenceError;
+      this.persistenceError = null;
+      throw error;
     }
   }
 
@@ -281,8 +299,7 @@ class DataService {
 
     const client = getSupabaseClient();
     if (!client) return;
-    const { error: yearError } = await client.from('academic_years').upsert(this.toDatabaseRow(STORAGE_KEYS.YEARS, normalizedYear));
-    if (yearError) throw yearError;
+    await this.flush();
 
     // Every year gets two terms for each of the eight grades.
     const { data: grades, error: gradesError } = await client.from('grades').select('id');
