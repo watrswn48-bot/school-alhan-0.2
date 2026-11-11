@@ -15,6 +15,7 @@ export const ExamManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Form Fields
   const [formName, setFormName] = useState('');
@@ -31,6 +32,20 @@ export const ExamManagement: React.FC = () => {
   const refreshData = () => {
     setExams(dataService.getExams());
     setExamSubjects(dataService.getExamSubjects());
+  };
+
+  const confirmPersistence = async (successMessage: string): Promise<boolean> => {
+    try {
+      await dataService.flush();
+      refreshData();
+      setSaveMessage(successMessage);
+      return true;
+    } catch (error) {
+      try { await dataService.refresh(); } catch { /* preserve the original persistence error */ }
+      refreshData();
+      setSaveMessage('تعذر حفظ التغييرات في قاعدة البيانات: ' + (error as Error).message);
+      return false;
+    }
   };
 
   const openAddModal = () => {
@@ -74,26 +89,30 @@ export const ExamManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleTogglePublish = (exam: Exam) => {
+  const handleTogglePublish = async (exam: Exam) => {
     const updated = { ...exam, is_published: !exam.is_published };
     dataService.saveExam(updated);
-    refreshData();
+    await confirmPersistence(updated.is_published ? 'تم إظهار الامتحان في بوابة النتائج.' : 'تم إخفاء الامتحان من بوابة النتائج.');
   };
 
   const handleDeleteExam = (exam: Exam) => {
     setExamToDelete(exam);
   };
 
-  const confirmDeleteExam = () => {
+  const confirmDeleteExam = async () => {
     if (!examToDelete) return;
     dataService.deleteExam(examToDelete.id);
-    refreshData();
-    setExamToDelete(null);
+    const saved = await confirmPersistence('تم حذف الامتحان.');
+    if (saved) setExamToDelete(null);
   };
 
-  const handleSaveExam = (e: React.FormEvent) => {
+  const handleSaveExam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formClassId || selectedSubjectIds.length === 0) return;
+    if (editingExam?.is_published) {
+      setSaveMessage('اسحب إظهار الامتحان أولاً قبل تعديل بياناته أو مواده.');
+      return;
+    }
 
     const examId = editingExam ? editingExam.id : `exam-${Date.now()}`;
     const examObj: Exam = {
@@ -113,7 +132,9 @@ export const ExamManagement: React.FC = () => {
 
     dataService.saveExam(examObj);
 
-    // Save exam subjects
+    // Remove subjects deleted from the edit form, then save the selected subjects.
+    examSubjects.filter(item => item.exam_id === examId && !selectedSubjectIds.some(selected => selected.subject_id === item.subject_id))
+      .forEach(item => dataService.deleteExamSubject(item.id));
     selectedSubjectIds.forEach((item, index) => {
       const esId = `es-${examId}-${item.subject_id}`;
       const examSubjectObj: ExamSubject = {
@@ -128,8 +149,8 @@ export const ExamManagement: React.FC = () => {
       dataService.saveExamSubject(examSubjectObj);
     });
 
-    refreshData();
-    setIsModalOpen(false);
+    const saved = await confirmPersistence(editingExam ? 'تم تعديل بيانات الامتحان ومواده.' : 'تم إنشاء الامتحان وحفظ مواده.');
+    if (saved) setIsModalOpen(false);
   };
 
   const addSubjectRow = () => {
@@ -146,6 +167,11 @@ export const ExamManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {saveMessage && (
+        <div role="status" className="p-3 bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl">
+          {saveMessage}
+        </div>
+      )}
       {/* Top Banner */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
@@ -154,7 +180,7 @@ export const ExamManagement: React.FC = () => {
             <span>إدارة الاختبارات والامتحانات والكنترول</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            إنشاء دورات الامتحانات (نصف العام، النهائي، العملي)، توزيع المواد، وتحديد النهايات العظمى وحالة النشر للطلاب
+            إنشاء الامتحانات وتوزيع المواد وتحديد النهايات العظمى ودرجات النجاح؛ اعتماد النتائج يتم من صفحة رصد النتائج
           </p>
         </div>
 
@@ -189,7 +215,7 @@ export const ExamManagement: React.FC = () => {
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : 'bg-amber-100 text-amber-800 border border-amber-300'
                     }`}>
-                      {exam.is_published ? 'منشور للطلاب (معتمد)' : 'مسودة كنترول (مخفي)'}
+                      {exam.is_published ? 'الامتحان ظاهر في بوابة النتائج' : 'الامتحان مخفي'}
                     </span>
 
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -249,7 +275,7 @@ export const ExamManagement: React.FC = () => {
                   }`}
                 >
                   {exam.is_published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  <span>{exam.is_published ? 'إخفاء عن الطلاب' : 'نشر واعتماد النتيجة'}</span>
+                  <span>{exam.is_published ? 'إخفاء الامتحان' : 'إظهار الامتحان'}</span>
                 </button>
 
                 <div className="flex items-center gap-1">
