@@ -12,7 +12,7 @@ import {
 import { CopticCross } from '../CopticIcons';
 import { getSupabaseClient } from '../../lib/supabase';
 
-export const SettingsAndDatabase: React.FC = () => {
+export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminRole = 'super_admin' }) => {
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
@@ -27,13 +27,24 @@ export const SettingsAndDatabase: React.FC = () => {
     });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'grading' | 'admins' | 'supabase'>('settings');
+  const initialSettingsTab = adminRole === 'content_manager' ? 'content' : 'settings';
+  const [activeTab, setActiveTab] = useState<'settings' | 'grading' | 'admins' | 'supabase' | 'content'>(initialSettingsTab);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementContent, setAnnouncementContent] = useState('');
+  const [announcementPublished, setAnnouncementPublished] = useState(false);
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventPublished, setEventPublished] = useState(false);
 
   // School Settings
   const [settings, setSettings] = useState<SchoolSettings>({
     id: '', school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', parish_name: '',
     dean_name: '', spiritual_supervisor: '', phone_number: '', whatsapp_number: '',
-    email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '',
+    email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '', about_text: '',
     announcement_banner: '', show_banner: false, results_disclaimer: '',
     academic_year_id: '', updated_at: '',
   });
@@ -54,6 +65,19 @@ export const SettingsAndDatabase: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedFunction, setCopiedFunction] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'content') return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    Promise.all([
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+      supabase.from('events').select('*').order('event_date', { ascending: true }),
+    ]).then(([announcementsResult, eventsResult]) => {
+      setAnnouncements(announcementsResult.data ?? []);
+      setEvents(eventsResult.data ?? []);
+    });
+  }, [activeTab]);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,6 +309,48 @@ export const SettingsAndDatabase: React.FC = () => {
     setSaveMessage(`تم ${nextStatus ? 'تفعيل' : 'تعطيل'} حساب المسؤول.`);
   };
 
+  const handleAddAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const supabase = getSupabaseClient();
+    if (!supabase || !announcementTitle.trim() || !announcementContent.trim()) return;
+    const { error } = await supabase.from('announcements').insert({
+      id: crypto.randomUUID(), title: announcementTitle.trim(), content: announcementContent.trim(),
+      is_published: announcementPublished, published_at: announcementPublished ? new Date().toISOString() : null,
+    });
+    if (error) { setSaveMessage('تعذر حفظ الإعلان: ' + error.message); return; }
+    setAnnouncementTitle(''); setAnnouncementContent(''); setAnnouncementPublished(false);
+    const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    setAnnouncements(data ?? []);
+    setSaveMessage('تم حفظ الإعلان.');
+  };
+
+  const handleAddEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const supabase = getSupabaseClient();
+    if (!supabase || !eventTitle.trim() || !eventDescription.trim() || !eventDate || !eventLocation.trim()) return;
+    const { error } = await supabase.from('events').insert({
+      id: crypto.randomUUID(), title: eventTitle.trim(), description: eventDescription.trim(),
+      event_date: new Date(eventDate).toISOString(), location: eventLocation.trim(), is_published: eventPublished,
+    });
+    if (error) { setSaveMessage('تعذر حفظ النشاط: ' + error.message); return; }
+    setEventTitle(''); setEventDescription(''); setEventDate(''); setEventLocation(''); setEventPublished(false);
+    const { data } = await supabase.from('events').select('*').order('event_date', { ascending: true });
+    setEvents(data ?? []);
+    setSaveMessage('تم حفظ النشاط.');
+  };
+
+  const handleToggleContentPublish = async (table: 'announcements' | 'events', id: string, published: boolean) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const patch = table === 'announcements'
+      ? { is_published: published, published_at: published ? new Date().toISOString() : null }
+      : { is_published: published };
+    const { error } = await supabase.from(table).update(patch).eq('id', id);
+    if (error) { setSaveMessage('تعذر تحديث حالة النشر: ' + error.message); return; }
+    if (table === 'announcements') setAnnouncements(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
+    else setEvents(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
+  };
+
   const sqlCodeSample = 'تم تطبيق ملفات التهيئة والتحديث على مشروع t-etchrompi-school. ملفات الترحيل المعتمدة محفوظة داخل مجلد supabase/migrations في مستودع المدرسة. لا تلصق ملفات SQL قديمة من هذه الشاشة.';
 
   return (
@@ -302,10 +368,9 @@ export const SettingsAndDatabase: React.FC = () => {
         {/* Sub Tabs */}
         <div className="flex items-center gap-2 mt-4 border-b border-slate-200 pb-2">
           {[
-            { id: 'settings', label: 'بيانات المدرسة والكنيسة' },
-            { id: 'grading', label: 'معايير التقديرات والنسب' },
-            { id: 'admins', label: 'حسابات الإدارة والصلاحيات' },
-            { id: 'supabase', label: 'مركز ربط Supabase والـ SQL' },
+            ...(adminRole === 'super_admin' ? [{ id: 'settings', label: 'بيانات المدرسة والكنيسة' }] : []),
+            { id: 'content', label: 'الإعلانات والأنشطة' },
+            ...(adminRole === 'super_admin' ? [{ id: 'grading', label: 'معايير التقديرات والنسب' }, { id: 'admins', label: 'حسابات الإدارة والصلاحيات' }, { id: 'supabase', label: 'مركز ربط Supabase' }] : []),
           ].map(t => (
             <button
               key={t.id}
@@ -326,6 +391,45 @@ export const SettingsAndDatabase: React.FC = () => {
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>{saveMessage}</span>
+        </div>
+      )}
+
+      {activeTab === 'content' && (
+        <div className="grid lg:grid-cols-2 gap-6">
+          <section className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <h3 className="font-bold text-lg font-amiri text-[#0c1a30]">إضافة إعلان</h3>
+            <form onSubmit={handleAddAnnouncement} className="space-y-3">
+              <input required value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} placeholder="عنوان الإعلان" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <textarea required rows={4} value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} placeholder="نص الإعلان" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={announcementPublished} onChange={e => setAnnouncementPublished(e.target.checked)} /> نشر الإعلان فوراً</label>
+              <button className="px-5 py-2.5 rounded-xl bg-[#0c1a30] text-white font-bold">حفظ الإعلان</button>
+            </form>
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="font-bold text-sm">الإعلانات الحالية</h4>
+              {announcements.map(item => <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                <div><p className="font-bold">{item.title}</p><p className="text-xs text-slate-500 line-clamp-2">{item.content}</p></div>
+                <button type="button" onClick={() => handleToggleContentPublish('announcements', item.id, !item.is_published)} className="text-xs font-bold text-[#0c1a30]">{item.is_published ? 'إخفاء' : 'نشر'}</button>
+              </div>)}
+            </div>
+          </section>
+          <section className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <h3 className="font-bold text-lg font-amiri text-[#0c1a30]">إضافة نشاط أو موعد</h3>
+            <form onSubmit={handleAddEvent} className="space-y-3">
+              <input required value={eventTitle} onChange={e => setEventTitle(e.target.value)} placeholder="اسم النشاط" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <textarea required rows={3} value={eventDescription} onChange={e => setEventDescription(e.target.value)} placeholder="وصف النشاط" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <input required type="datetime-local" value={eventDate} onChange={e => setEventDate(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <input required value={eventLocation} onChange={e => setEventLocation(e.target.value)} placeholder="المكان" className="w-full p-3 rounded-xl border border-slate-300 text-sm" />
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={eventPublished} onChange={e => setEventPublished(e.target.checked)} /> نشر النشاط فوراً</label>
+              <button className="px-5 py-2.5 rounded-xl bg-[#0c1a30] text-white font-bold">حفظ النشاط</button>
+            </form>
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="font-bold text-sm">الأنشطة الحالية</h4>
+              {events.map(item => <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                <div><p className="font-bold">{item.title}</p><p className="text-xs text-slate-500">{new Date(item.event_date).toLocaleString('ar-EG')} · {item.location}</p></div>
+                <button type="button" onClick={() => handleToggleContentPublish('events', item.id, !item.is_published)} className="text-xs font-bold text-[#0c1a30]">{item.is_published ? 'إخفاء' : 'نشر'}</button>
+              </div>)}
+            </div>
+          </section>
         </div>
       )}
 
@@ -415,6 +519,17 @@ export const SettingsAndDatabase: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-slate-700 font-bold mb-1">نبذة تعريفية عن المدرسة</label>
+              <textarea
+                rows={4}
+                value={settings.about_text || ''}
+                onChange={(e) => setSettings({ ...settings, about_text: e.target.value })}
+                placeholder="اكتب نبذة المدرسة ورسالتها والأنشطة التعليمية..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -733,7 +848,6 @@ export const SettingsAndDatabase: React.FC = () => {
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[
-                      {
                       {
                         role: 'results_manager' as UserRole,
                         label: 'مسؤول الكنترول والنتائج',
@@ -1126,381 +1240,4 @@ export const SettingsAndDatabase: React.FC = () => {
     </div>
   );
 };
-                {/* Role selection */}
-                <div>
-                  <label className="block text-slate-700 font-bold mb-2">
-                    تحديد نوع الصلاحية والدور الإداري <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {[
-                      {
-                        role: 'super_admin' as UserRole,
-                        label: 'مدير عام النظام (Super Admin)',
-                        desc: 'صلاحيات كاملة: إدارة الحسابات، قواعد البيانات، والكنترول',
-                        border: 'hover:border-red-400'
-                      },
-                      {
-                        role: 'results_manager' as UserRole,
-                        label: 'مسؤول الكنترول والنتائج',
-                        desc: 'إنشاء الامتحانات، رصد الدرجات، نشر واعتماد النتائج والشهادات',
-                        border: 'hover:border-emerald-400'
-                      },
-                      {
-                        role: 'admin' as UserRole,
-                        label: 'مسؤول شؤون المدرسة والطلاب',
-                        desc: 'إدارة الطلاب، المراحل، الصفوف، وتكويد الطلاب المانوي',
-                        border: 'hover:border-indigo-400'
-                      },
-                      {
-                        role: 'teacher' as UserRole,
-                        label: 'معلم ألحان / طقس كنسي',
-                        desc: 'تقييم الطلاب وتسليم الألحان والمردات الكنسية',
-                        border: 'hover:border-amber-400'
-                      },
-                      {
-                        role: 'content_manager' as UserRole,
-                        label: 'مسؤول المحتوى والإعلام',
-                        desc: 'إدارة بيانات المدرسة، التعليمات والتنبيهات المدرسية',
-                        border: 'hover:border-blue-400'
-                      }
-                    ].map((item) => (
-                      <label
-                        key={item.role}
-                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-2.5 ${
-                          newAdminRole === item.role
-                            ? 'bg-amber-50/80 border-[#c5a059] shadow-sm'
-                            : 'bg-white border-slate-200 ' + item.border
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="adminRole"
-                          checked={newAdminRole === item.role}
-                          onChange={() => setNewAdminRole(item.role)}
-                          className="mt-1"
-                        />
-                        <div>
-                          <span className="font-bold text-slate-900 block">{item.label}</span>
-                          <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">{item.desc}</span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Form Buttons */}
-                <div className="pt-3 border-t border-[#c5a059]/20 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddAdminForm(false);
-                      setAdminFormError(null);
-                    }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer flex items-center gap-2 transition-all"
-                  >
-                    <UserPlus className="w-4 h-4 text-[#c5a059]" />
-                    <span>إرسال دعوة تفعيل الحساب</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Existing Admins List */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h4 className="font-bold text-sm text-[#0c1a30] font-amiri">
-                قائمة الحسابات الإدارية المعتمدة ({adminProfiles.length} مسؤول)
-              </h4>
-              <span className="text-xs text-slate-400">
-                يمكن لكل مسؤول تسجيل الدخول مباشرة عبر شاشة دخول الإدارة
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {adminProfiles.map((adm) => {
-                const isSuper = adm.role === 'super_admin';
-                const roleBadgeInfo = {
-                  super_admin: { label: 'مدير عام النظام', color: 'bg-red-50 text-red-800 border-red-200' },
-                  results_manager: { label: 'مسؤول الكنترول والنتائج', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-                  admin: { label: 'مسؤول شؤون المدرسة', color: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
-                  teacher: { label: 'معلم ألحان وطقوس', color: 'bg-amber-50 text-amber-800 border-amber-200' },
-                  content_manager: { label: 'مسؤول المحتوى', color: 'bg-blue-50 text-blue-800 border-blue-200' },
-                }[adm.role] || { label: adm.role, color: 'bg-slate-50 text-slate-800 border-slate-200' };
-
-                return (
-                  <div
-                    key={adm.id}
-                    className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-                      adm.is_active ? 'bg-white border-slate-200' : 'bg-slate-50/70 border-slate-200 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold font-mono text-sm shrink-0 ${
-                        isSuper ? 'bg-[#0c1a30] text-[#c5a059]' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {adm.full_name.slice(0, 2)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-900">{adm.full_name}</span>
-                          {!adm.is_active && (
-                            <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded font-bold">
-                              معطل
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 mt-0.5 font-mono text-[11px]">
-                          <span>{adm.email}</span>
-                          <span className="text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px]">تفعيل عبر دعوة البريد الإلكتروني</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <span className={`px-3 py-1 rounded-full font-bold border text-[11px] ${roleBadgeInfo.color}`}>
-                        {roleBadgeInfo.label}
-                      </span>
-
-                      {/* Toggle status */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAdminStatus(adm)}
-                        title={adm.is_active ? 'تعطيل الحساب' : 'تفعيل الحساب'}
-                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-                          adm.is_active
-                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                            : 'text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        {adm.is_active ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
-                      </button>
-
-                      {/* Delete button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAdmin(adm)}
-                        title="حذف الحساب"
-                        className="p-2 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Supabase Hub & SQL Center */}
-      {activeTab === 'supabase' && (
-        <div className="space-y-6">
-          {/* Connection Settings Box */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-[#c5a059]" />
-                <h3 className="font-bold text-sm text-[#0c1a30] font-amiri">
-                  إعدادات الاتصال بـ Supabase (PostgreSQL & Auth & Edge Functions)
-                </h3>
-              </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                creds.isConfigured ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {creds.isConfigured ? 'تمت إضافة البيانات' : 'يعمل بالوضع المحلي المدمج'}
-              </span>
-            </div>
-
-            <form onSubmit={handleSaveSupabaseConfig} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    رابط مشروع Supabase (Project URL)
-                  </label>
-                  <input
-                    type="url"
-                    dir="ltr"
-                    value={supabaseUrl}
-                    onChange={(e) => setSupabaseUrl(e.target.value)}
-                    placeholder="https://xyzcompany.supabase.co"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    مفتاح الوصول العام (Anon Key)
-                  </label>
-                  <input
-                    type="password"
-                    dir="ltr"
-                    value={supabaseKey}
-                    onChange={(e) => setSupabaseKey(e.target.value)}
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {connectionTestResult && (
-                <div className={`p-3 rounded-xl flex items-center gap-2 text-xs ${
-                  connectionTestResult.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  {connectionTestResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
-                  <span>{connectionTestResult.message}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleTestConnectionNow}
-                  disabled={testingConnection || !supabaseUrl}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer disabled:opacity-50"
-                >
-                  {testingConnection ? 'جاري الفحص...' : 'فحص الاتصال فقط'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={testingConnection}
-                  className="px-6 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer disabled:opacity-50"
-                >
-                  {testingConnection ? 'جاري الفحص والحفظ...' : 'حفظ واختبار الربط'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Setup Guide in Arabic */}
-          <div className="bg-[#faf8f5] rounded-2xl border border-[#c5a059]/40 p-6 space-y-4 text-xs text-slate-700">
-            <h4 className="font-bold text-sm text-[#0c1a30] font-amiri flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#c5a059]" />
-              <span>خطوات تهيئة قاعدة بيانات Supabase الرسمية لمدرسة الألحان:</span>
-            </h4>
-            <ol className="list-decimal list-inside space-y-2 leading-relaxed">
-              <li>سجل دخولك إلى لوحة تحكم <strong>Supabase (supabase.com)</strong> وأنشئ مشروعاً جديداً باسم <code>t-etchrompi-school</code>.</li>
-              <li>انتقل إلى تبويب <strong>SQL Editor</strong>، واضغط على <strong>New Query</strong>.</li>
-              <li>انسخ كود ملف التهيئة أدناه (الموجود أيضاً في <code>supabase/migrations/20261105000000_school_system.sql</code>) والصقه ثم اضغط <strong>RUN</strong>.</li>
-              <li>سيتم إنشاء جميع الجداول الـ 16، والقيود، والفهارس، وسياسات الأمان (RLS).</li>
-              <li>انسخ <strong>Project URL</strong> و <strong>Anon Public Key</strong> من إعدادات <strong>Project Settings &gt; API</strong> وضعهما في الحقول أعلاه.</li>
-            </ol>
-          </div>
-
-          {/* SQL Viewer & Copy */}
-          <div className="bg-[#0c1a30] text-slate-100 rounded-2xl p-6 border-2 border-[#c5a059]/40 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-              <div className="flex items-center gap-2 text-xs font-mono text-[#e0c588]">
-                <Terminal className="w-4 h-4" />
-                <span>ملف SQL Migration الكامل (18 جدول + RLS + قيود الأكواد المانوية)</span>
-              </div>
-              <button
-                onClick={() => copyToClipboard(sqlCodeSample, false)}
-                className="px-3 py-1.5 bg-[#c5a059] hover:bg-[#d4af37] text-[#0c1a30] rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
-              >
-                {copiedSql ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedSql ? 'تم النسخ للحافظة!' : 'نسخ كود الـ SQL'}</span>
-              </button>
-            </div>
-
-            <pre className="p-4 bg-[#07101f] rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-64 border border-slate-800">
-              {sqlCodeSample}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* In-App Reset Database Confirmation Modal */}
-      {confirmResetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-red-500/30 space-y-4 text-right">
-            <div className="flex items-center gap-3 text-red-600 pb-3 border-b border-red-100">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <RotateCcw className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-900 font-amiri">استعادة البيانات الافتراضية</h3>
-                <p className="text-xs text-slate-500">تحذير مسح واستعادة البيانات الأولية</p>
-              </div>
-            </div>
-
-            <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-slate-700 leading-relaxed space-y-2">
-              <p className="font-bold text-red-800">هل أنت متأكد تماماً من رغبتك في هذا الإجراء؟</p>
-              <p>
-                سيتم مسح أي تعديلات قمت بها واستعادة البيانات الافتراضية لكافة الطلاب والفصول والمواد والنتائج.
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmResetModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer text-xs"
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={executeResetData}
-                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>نعم، استعد البيانات الافتراضية</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* In-App Delete Admin Modal */}
-      {adminToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-red-500/30 space-y-4 text-right">
-            <div className="flex items-center gap-3 text-red-600 pb-3 border-b border-red-100">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-900 font-amiri">تأكيد حذف المسؤول</h3>
-                <p className="text-xs text-slate-500">سيتم إلغاء صلاحية الدخول نهائياً</p>
-              </div>
-            </div>
-
-            <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-slate-700 leading-relaxed space-y-2">
-              <p>هل أنت متأكد من حذف حساب المسؤول:</p>
-              <div className="p-2.5 bg-white rounded-lg border border-red-200">
-                <div className="font-bold text-sm text-[#0c1a30]">{adminToDelete.full_name}</div>
-                <div className="text-slate-500 font-mono text-xs mt-0.5">{adminToDelete.email}</div>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAdminToDelete(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer text-xs"
-              >
-                إلغاء التراجع
-              </button>
-              <button
-                type="button"
-                onClick={executeDeleteAdmin}
-                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1.5"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>نعم، احذف الحساب</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};

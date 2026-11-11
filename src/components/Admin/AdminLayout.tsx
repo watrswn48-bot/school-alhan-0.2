@@ -206,7 +206,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
             <ResultsManagement onOpenExcelImport={() => handleTabChange('excel')} />
           )}
           {activeTab === 'excel' && <ExcelImportCenter />}
-          {activeTab === 'settings' && <SettingsAndDatabase />}
+          {activeTab === 'settings' && <SettingsAndDatabase adminRole={admin.role} />}
         </main>
       </div>
     </div>
