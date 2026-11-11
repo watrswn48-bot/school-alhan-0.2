@@ -3,7 +3,7 @@ import { CopticCross } from './CopticIcons';
 import { Award, Home } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
-export type PageTab = 'home' | 'results' | 'admin';
+export type PageTab = 'home' | 'results' | 'admin' | 'bootstrap';
 interface NavbarProps {
   currentTab: PageTab;
   onSelectTab: (tab: PageTab) => void;
