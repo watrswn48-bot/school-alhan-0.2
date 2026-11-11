@@ -397,7 +397,67 @@ export const ExcelImportCenter: React.FC = () => {
               </button>
             </div>
 
-            <div className="border-2 border-dashed border-[var(--school-accent)]/50 roun          {/* Mapping Controls */}
+            <div className="border-2 border-dashed border-[var(--school-accent)]/50 rounded-2xl p-8 hover:bg-[#faf8f5] transition-colors relative cursor-pointer">
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileChange}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 text-[#b8860b] flex items-center justify-center mx-auto">
+                  <Upload className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-[var(--school-primary)]">
+                    اضغط هنا لاختيار ملف الإكسل أو اسحبه داخل هذا المربع
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">يدعم ملفات (.xlsx, .csv)</p>
+                </div>
+              </div>
+            </div>
+
+            {parsingError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{parsingError}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3 & 4: Preview Table and Column Mapping */}
+      {currentStep === 3 && parsedData && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-lg font-bold font-amiri text-[var(--school-primary)]">
+                الخطوة 2: معاينة البيانات وتعيين أعمدة الإكسل
+              </h3>
+              <p className="text-xs text-slate-500">
+                تمت قراءة <strong className="font-mono">{parsedData.totalRows}</strong> صف من الملف. طابق أعمدة الملف مع حقول قاعدة البيانات.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={resetWizard}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg cursor-pointer"
+              >
+                إلغاء واختيار ملف آخر
+              </button>
+              <button
+                onClick={runValidation}
+                className="px-5 py-2 bg-[var(--school-primary)] hover:bg-[#162a4d] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <span>فحص البيانات والتحقق</span>
+                <ArrowLeft className="w-4 h-4 text-[var(--school-accent)]" />
+              </button>
+            </div>
+          </div>
+
+          {/* Mapping Controls */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[#faf8f5] p-4 rounded-xl border border-slate-200 text-xs">
             {(importType === 'students' ? [
               ['student_code', 'كود الطالب *'],
@@ -426,61 +486,6 @@ export const ExcelImportCenter: React.FC = () => {
                 </select>
               </div>
             ))}
-          </div>
-
-            <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    اسم الطالب <span className="text-red-600">*</span>
-                  </label>
-                  <select
-                    value={columnMappings['full_name'] || ''}
-                    onChange={(e) => setColumnMappings({ ...columnMappings, full_name: e.target.value })}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
-                  >
-                    <option value="">-- اختر عمود الاسم --</option>
-                    {parsedData.headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">رقم الهاتف</label>
-                  <select
-                    value={columnMappings['phone'] || ''}
-                    onChange={(e) => setColumnMappings({ ...columnMappings, phone: e.target.value })}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
-                  >
-                    <option value="">-- اختياري --</option>
-                    {parsedData.headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">كود الطالب المطابق</label>
-                  <select
-                    value={columnMappings['student_code'] || ''}
-                    onChange={(e) => setColumnMappings({ ...columnMappings, student_code: e.target.value })}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
-                  >
-                    <option value="">-- اختر عمود الكود --</option>
-                    {parsedData.headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">الدرجة الحاصل عليها</label>
-                  <select
-                    value={columnMappings['score'] || ''}
-                    onChange={(e) => setColumnMappings({ ...columnMappings, score: e.target.value })}
-                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"
-                  >
-                    <option value="">-- اختر عمود الدرجة --</option>
-                    {parsedData.headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
           </div>
 
           {/* Preview First 5 Rows */}
