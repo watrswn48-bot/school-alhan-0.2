@@ -40,7 +40,8 @@ export type AdminTab =
   | 'settings';
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBackToWebsite }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const initialTab: AdminTab = admin.role === 'admin' ? 'students' : admin.role === 'content_manager' ? 'settings' : admin.role === 'teacher' || admin.role === 'results_manager' ? 'results' : 'overview';
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const menuItems: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
@@ -52,6 +53,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
     { id: 'excel', label: 'مركز استيراد الإكسل (Excel)', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'settings', label: 'الإعدادات وقاعدة البيانات', icon: <Settings className="w-4 h-4" /> },
   ];
+
+  const allowedTabs: AdminTab[] = admin.role === 'super_admin'
+    ? ['overview', 'academic', 'students', 'exams', 'results', 'excel', 'settings']
+    : admin.role === 'admin'
+      ? ['students']
+      : admin.role === 'content_manager'
+        ? ['settings']
+        : ['overview', 'results'];
+
+  const visibleMenuItems = menuItems.filter(item => allowedTabs.includes(item.id));
 
   const handleTabChange = (tab: AdminTab) => {
     setActiveTab(tab);
@@ -124,7 +135,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
           </div>
 
           <nav className="space-y-1">
-            {menuItems.map(item => {
+            {visibleMenuItems.map(item => {
               const isActive = activeTab === item.id;
               return (
                 <button
@@ -159,7 +170,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
               </div>
 
               <nav className="space-y-1 pt-2">
-                {menuItems.map(item => (
+                {visibleMenuItems.map(item => (
                   <button
                     key={item.id}
                     onClick={() => handleTabChange(item.id)}

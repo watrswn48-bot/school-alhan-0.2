@@ -1,26 +1,44 @@
-import React, { useState } from 'react';
-import { dataService } from '../../lib/storage';
+import React, { useEffect, useState } from 'react';
 import {
   getSupabaseCredentials,
-  saveSupabaseCredentials,
   testSupabaseConnection
 } from '../../lib/supabase';
 import { SchoolSettings, GradingRule, AdminProfile, UserRole } from '../../types/database';
-import { FULL_SUPABASE_MIGRATION_SQL } from '../../lib/databaseSql';
 import {
   Settings, Database, Save, CheckCircle2, AlertCircle, AlertTriangle, Copy, Key,
   Shield, RotateCcw, Code, ExternalLink, Terminal, UserPlus, Trash2,
   UserCheck, UserX, Lock, Mail, User, ShieldAlert, Upload, Image as ImageIcon, Link as LinkIcon
 } from 'lucide-react';
 import { CopticCross } from '../CopticIcons';
+import { getSupabaseClient } from '../../lib/supabase';
 
 export const SettingsAndDatabase: React.FC = () => {
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    Promise.all([
+      supabase.from('school_settings').select('*').limit(1).maybeSingle(),
+      supabase.from('academic_years').select('id').eq('is_active', true).maybeSingle(),
+      supabase.from('grading_rules').select('*').order('minimum_percentage', { ascending: false }),
+    ]).then(([settingsResult, yearResult, rulesResult]) => {
+      if (settingsResult.data) setSettings(prev => ({ ...prev, ...settingsResult.data }));
+      if (yearResult.data?.id) setSettings(prev => ({ ...prev, academic_year_id: yearResult.data.id }));
+      if (rulesResult.data) setGradingRules(rulesResult.data as GradingRule[]);
+    });
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'settings' | 'grading' | 'admins' | 'supabase'>('settings');
 
   // School Settings
-  const [settings, setSettings] = useState<SchoolSettings>(dataService.getSettings());
-  const [gradingRules, setGradingRules] = useState<GradingRule[]>(dataService.getGradingRules());
-  const [adminProfiles, setAdminProfiles] = useState<AdminProfile[]>(dataService.getAdminProfiles());
+  const [settings, setSettings] = useState<SchoolSettings>({
+    id: '', school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', parish_name: '',
+    dean_name: '', spiritual_supervisor: '', phone_number: '', whatsapp_number: '',
+    email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '',
+    announcement_banner: '', show_banner: false, results_disclaimer: '',
+    academic_year_id: '', updated_at: '',
+  });
+  const [gradingRules, setGradingRules] = useState<GradingRule[]>([]);
+  const [adminProfiles, setAdminProfiles] = useState<AdminProfile[]>([]);
 
   // Modal states for safe confirmation without window.confirm
   const [confirmResetModal, setConfirmResetModal] = useState(false);
@@ -28,8 +46,8 @@ export const SettingsAndDatabase: React.FC = () => {
 
   // Supabase connection state
   const creds = getSupabaseCredentials();
-  const [supabaseUrl, setSupabaseUrl] = useState(creds.url);
-  const [supabaseKey, setSupabaseKey] = useState(creds.key);
+  const [supabaseUrl] = useState(creds.url);
+  const [supabaseKey] = useState(creds.key);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -37,11 +55,19 @@ export const SettingsAndDatabase: React.FC = () => {
   const [copiedFunction, setCopiedFunction] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    dataService.updateSettings(settings);
-    setSaveMessage('تم حفظ وتحديث بيانات وشعار المدرسة بنجاح في كامل النظام.');
-    setTimeout(() => setSaveMessage(null), 3000);
+    const supabase = getSupabaseClient();
+    if (!supabase) { setSaveMessage('تعذر الاتصال بقاعدة بيانات المدرسة.'); return; }
+    const { id, ...payload } = settings;
+    const query = id && /^[0-9a-f-]{36}$/i.test(id)
+      ? supabase.from('school_settings').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id)
+      : supabase.from('school_settings').insert({ ...payload, updated_at: new Date().toISOString() });
+    const { error } = await query;
+    if (error) { setSaveMessage('تعذر حفظ إعدادات المدرسة: ' + error.message); return; }
+    const { data } = await supabase.from('school_settings').select('*').limit(1).maybeSingle();
+    if (data) setSettings(prev => ({ ...prev, ...data }));
+    setSaveMessage('تم حفظ إعدادات المدرسة في قاعدة البيانات.');
   };
 
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +104,6 @@ export const SettingsAndDatabase: React.FC = () => {
 
   const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveSupabaseCredentials(supabaseUrl, supabaseKey);
     setTestingConnection(true);
     setConnectionTestResult(null);
 
@@ -95,24 +120,25 @@ export const SettingsAndDatabase: React.FC = () => {
     setConnectionTestResult(test);
   };
 
-  const handleSaveGradingRules = (e: React.FormEvent) => {
+  const handleSaveGradingRules = async (e: React.FormEvent) => {
     e.preventDefault();
-    gradingRules.forEach(rule => dataService.saveGradingRule(rule));
-    setSaveMessage('تم حفظ وتحديث قواعد ومعايير التقديرات بنجاح.');
-    setTimeout(() => setSaveMessage(null), 3000);
+    const supabase = getSupabaseClient();
+    if (!supabase) { setSaveMessage('تعذر الاتصال بقاعدة بيانات المدرسة.'); return; }
+    if (!gradingRules.length) { setSaveMessage('أضف قواعد التقدير أولاً قبل الحفظ.'); return; }
+    const { error } = await supabase.from('grading_rules').upsert(gradingRules.map(({ id, ...rule }) => ({
+      ...(id && /^[0-9a-f-]{36}$/i.test(id) ? { id } : {}),
+      ...rule,
+    })));
+    setSaveMessage(error ? 'تعذر حفظ قواعد التقدير: ' + error.message : 'تم حفظ قواعد التقدير في قاعدة البيانات.');
   };
 
   const handleResetData = () => {
-    setConfirmResetModal(true);
+    setSaveMessage('إعادة ضبط البيانات غير متاحة حفاظاً على بيانات المدرسة الحقيقية.');
   };
 
   const executeResetData = () => {
-    dataService.resetAllData();
-    setSettings(dataService.getSettings());
-    setGradingRules(dataService.getGradingRules());
-    setAdminProfiles(dataService.getAdminProfiles());
     setConfirmResetModal(false);
-    setSaveMessage('تمت استعادة البيانات الافتراضية الأولية بنجاح.');
+    setSaveMessage('تم إيقاف إعادة ضبط البيانات التجريبية حتى لا تتأثر بيانات المدرسة الحقيقية.');
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
@@ -131,57 +157,84 @@ export const SettingsAndDatabase: React.FC = () => {
   const [showAddAdminForm, setShowAddAdminForm] = useState(false);
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<UserRole>('results_manager');
+  const [scopeOptions, setScopeOptions] = useState<{ years: any[]; grades: any[]; classes: any[]; terms: any[]; subjects: any[] }>({ years: [], grades: [], classes: [], terms: [], subjects: [] });
+  const [scopeClassId, setScopeClassId] = useState('');
+  const [scopeTermId, setScopeTermId] = useState('');
+  const [scopeSubjectId, setScopeSubjectId] = useState('');
   const [adminFormError, setAdminFormError] = useState<string | null>(null);
 
-  const handleAddAdmin = (e: React.FormEvent) => {
+
+  useEffect(() => {
+    if (activeTab !== 'admins') return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    Promise.all([
+      supabase.functions.invoke('admin-management', { body: { action: 'list' } }),
+      supabase.from('academic_years').select('id,name,is_active').order('name'),
+      supabase.from('grades').select('id,name,stage_id').order('display_order'),
+      supabase.from('classes').select('id,name,grade_id,academic_year_id,term_id').order('name'),
+      supabase.from('academic_terms').select('id,name,academic_year_id,grade_id,term_number').order('term_number'),
+      supabase.from('subjects').select('id,name').order('name'),
+    ]).then(([admins, years, grades, classes, terms, subjects]) => {
+      if (!admins.error && Array.isArray(admins.data?.admins)) setAdminProfiles(admins.data.admins as AdminProfile[]);
+      else if (admins.error) setAdminFormError('إدارة الحسابات متاحة للمسؤول الرئيسي فقط.');
+      setScopeOptions({
+        years: years.data ?? [], grades: grades.data ?? [], classes: classes.data ?? [],
+        terms: terms.data ?? [], subjects: subjects.data ?? [],
+      });
+    });
+  }, [activeTab]);
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminFormError(null);
-
     const trimmedName = newAdminName.trim();
     const trimmedEmail = newAdminEmail.trim().toLowerCase();
-
-    if (!trimmedName) {
-      setAdminFormError('يرجى كتابة اسم المسؤول بالكامل.');
+    if (!trimmedName || !trimmedEmail.includes('@')) {
+      setAdminFormError('يرجى إدخال الاسم والبريد الإلكتروني بصورة صحيحة.');
       return;
     }
-
-    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      setAdminFormError('يرجى إدخال بريد إلكتروني صحيح ومعتمد.');
-      return;
-    }
-
     if (adminProfiles.some(a => a.email.toLowerCase() === trimmedEmail)) {
-      setAdminFormError('هذا البريد الإلكتروني مسجل بالفعل لمسؤول آخر بالنظام.');
+      setAdminFormError('هذا البريد الإلكتروني مسجل بالفعل.');
       return;
     }
 
-    if (!newAdminPassword || newAdminPassword.length < 6) {
-      setAdminFormError('كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAdminFormError('تعذر الاتصال بقاعدة بيانات المدرسة.');
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke('admin-management', {
+      body: {
+        action: 'invite', full_name: trimmedName, email: trimmedEmail, role: newAdminRole,
+        permissions: newAdminRole === 'content_manager'
+          ? [{ permission_key: 'manage_content' }]
+          : newAdminRole === 'admin'
+            ? [{ permission_key: 'manage_students', class_id: scopeClassId || null }]
+            : [{
+                permission_key: 'manage_results',
+                academic_year_id: scopeOptions.classes.find(c => c.id === scopeClassId)?.academic_year_id || null,
+                grade_id: scopeOptions.classes.find(c => c.id === scopeClassId)?.grade_id || null,
+                class_id: scopeClassId || null,
+                term_id: scopeTermId || null,
+                subject_id: scopeSubjectId || null,
+              }],
+      },
+    });
+    if (error || !data?.success) {
+      setAdminFormError(data?.error || 'تعذر إرسال دعوة المسؤول. تأكد من أنك المسؤول الرئيسي.');
       return;
     }
 
-    const newAdmin: AdminProfile = {
-      id: `admin-${Date.now()}`,
-      user_id: `user-${Date.now()}`,
-      full_name: trimmedName,
-      email: trimmedEmail,
-      password: newAdminPassword,
-      role: newAdminRole,
-      is_active: true,
-      created_at: new Date().toISOString()
-    };
-
-    dataService.saveAdminProfile(newAdmin);
-    setAdminProfiles(dataService.getAdminProfiles());
+    const refreshed = await supabase.functions.invoke('admin-management', { body: { action: 'list' } });
+    if (Array.isArray(refreshed.data?.admins)) setAdminProfiles(refreshed.data.admins as AdminProfile[]);
     setNewAdminName('');
     setNewAdminEmail('');
-    setNewAdminPassword('');
     setNewAdminRole('results_manager');
+    setScopeClassId(''); setScopeTermId(''); setScopeSubjectId('');
     setShowAddAdminForm(false);
-    setSaveMessage(`تمت إضافة حساب المسؤول (${newAdmin.full_name}) بنجاح.`);
-    setTimeout(() => setSaveMessage(null), 3000);
+    setSaveMessage('تم إرسال دعوة تفعيل الحساب إلى البريد الإلكتروني للمسؤول.');
   };
 
   const handleDeleteAdmin = (admin: AdminProfile) => {
@@ -195,34 +248,44 @@ export const SettingsAndDatabase: React.FC = () => {
     setAdminToDelete(admin);
   };
 
-  const executeDeleteAdmin = () => {
+  const executeDeleteAdmin = async () => {
     if (!adminToDelete) return;
-    dataService.deleteAdminProfile(adminToDelete.id);
-    setAdminProfiles(dataService.getAdminProfiles());
-    setSaveMessage(`تم حذف حساب المسؤول (${adminToDelete.full_name}) بنجاح.`);
-    setTimeout(() => setSaveMessage(null), 3000);
+    const supabase = getSupabaseClient();
+    const { error } = supabase
+      ? await supabase.functions.invoke('admin-management', {
+          body: { action: 'set-active', id: adminToDelete.id, is_active: false },
+        })
+      : { error: new Error('تعذر الاتصال بقاعدة البيانات.') };
+    if (error) {
+      setSaveMessage('تعذر تعطيل الحساب من قاعدة البيانات.');
+    } else {
+      setAdminProfiles(prev => prev.map(a => a.id === adminToDelete.id ? { ...a, is_active: false } : a));
+      setSaveMessage('تم تعطيل حساب المسؤول. يمكن إعادة تفعيله لاحقاً.');
+    }
     setAdminToDelete(null);
   };
 
-  const handleToggleAdminStatus = (admin: AdminProfile) => {
-    const activeSuperAdmins = adminProfiles.filter(a => a.role === 'super_admin' && a.is_active);
-    if (admin.role === 'super_admin' && admin.is_active && activeSuperAdmins.length <= 1) {
-      setSaveMessage('لا يمكن تعطيل المسؤول النشط الوحيد بصلاحية مدير عام النظام.');
-      setTimeout(() => setSaveMessage(null), 3500);
+  const handleToggleAdminStatus = async (admin: AdminProfile) => {
+    if (admin.role === 'super_admin' && admin.is_active && adminProfiles.filter(a => a.role === 'super_admin' && a.is_active).length <= 1) {
+      setSaveMessage('لا يمكن تعطيل المسؤول الرئيسي الوحيد.');
       return;
     }
-
-    const updated: AdminProfile = {
-      ...admin,
-      is_active: !admin.is_active
-    };
-    dataService.saveAdminProfile(updated);
-    setAdminProfiles(dataService.getAdminProfiles());
-    setSaveMessage(`تم ${updated.is_active ? 'تفعيل' : 'تعطيل'} حساب المسؤول (${admin.full_name}) بنجاح.`);
-    setTimeout(() => setSaveMessage(null), 3000);
+    const nextStatus = !admin.is_active;
+    const supabase = getSupabaseClient();
+    const { error } = supabase
+      ? await supabase.functions.invoke('admin-management', {
+          body: { action: 'set-active', id: admin.id, is_active: nextStatus },
+        })
+      : { error: new Error('تعذر الاتصال بقاعدة البيانات.') };
+    if (error) {
+      setSaveMessage('تعذر تحديث حالة الحساب. تأكد من صلاحية المسؤول الرئيسي.');
+      return;
+    }
+    setAdminProfiles(prev => prev.map(a => a.id === admin.id ? { ...a, is_active: nextStatus } : a));
+    setSaveMessage(`تم ${nextStatus ? 'تفعيل' : 'تعطيل'} حساب المسؤول.`);
   };
 
-  const sqlCodeSample = FULL_SUPABASE_MIGRATION_SQL;
+  const sqlCodeSample = 'تم تطبيق ملفات التهيئة والتحديث على مشروع t-etchrompi-school. ملفات الترحيل المعتمدة محفوظة داخل مجلد supabase/migrations في مستودع المدرسة. لا تلصق ملفات SQL قديمة من هذه الشاشة.';
 
   return (
     <div className="space-y-6">
@@ -580,7 +643,7 @@ export const SettingsAndDatabase: React.FC = () => {
                 </h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                إضافة وتعيين مسؤولي المدرسة والكنترول وتحديد صلاحياتهم وكلمات المرور الخاصة بهم
+                إضافة وتعيين مسؤولي المدرسة والكنترول وتحديد صلاحياتهم وصلاحيات الوصول المخصصة لهم
               </p>
             </div>
 
@@ -609,7 +672,7 @@ export const SettingsAndDatabase: React.FC = () => {
                       إضافة حساب مسؤول جديد بالكنترول
                     </h4>
                     <p className="text-[11px] text-slate-500">
-                      سيتمكن المسؤول من تسجيل الدخول فوراً ببياناته إلى لوحة التحكم
+                      سيصل للمسؤول رابط تفعيل آمن على بريده الإلكتروني، ويحدد كلمة مروره بنفسه.
                     </p>
                   </div>
                 </div>
@@ -623,7 +686,7 @@ export const SettingsAndDatabase: React.FC = () => {
               )}
 
               <form onSubmit={handleAddAdmin} className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Full Name */}
                   <div>
                     <label className="block text-slate-700 font-bold mb-1">
@@ -661,26 +724,408 @@ export const SettingsAndDatabase: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Password */}
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      كلمة المرور للدخول <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="password"
-                        required
-                        dir="ltr"
-                        value={newAdminPassword}
-                        onChange={(e) => setNewAdminPassword(e.target.value)}
-                        placeholder="6 خانات أو أكثر"
-                        className="w-full pr-9 pl-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-slate-900 text-right focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
-                      />
-                      <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-                    </div>
+                </div>
+
+                {/* Role selection */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-2">
+                    تحديد نوع الصلاحية والدور الإداري <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[
+                      {
+                      {
+                        role: 'results_manager' as UserRole,
+                        label: 'مسؤول الكنترول والنتائج',
+                        desc: 'إنشاء الامتحانات، رصد الدرجات، نشر واعتماد النتائج والشهادات',
+                        border: 'hover:border-emerald-400'
+                      },
+                      {
+                        role: 'admin' as UserRole,
+                        label: 'مسؤول شؤون المدرسة والطلاب',
+                        desc: 'إدارة الطلاب، المراحل، الصفوف، وتكويد الطلاب المانوي',
+                        border: 'hover:border-indigo-400'
+                      },
+                      {
+                        role: 'teacher' as UserRole,
+                        label: 'معلم ألحان / طقس كنسي',
+                        desc: 'تقييم الطلاب وتسليم الألحان والمردات الكنسية',
+                        border: 'hover:border-amber-400'
+                      },
+                      {
+                        role: 'content_manager' as UserRole,
+                        label: 'مسؤول المحتوى والإعلام',
+                        desc: 'إدارة بيانات المدرسة، التعليمات والتنبيهات المدرسية',
+                        border: 'hover:border-blue-400'
+                      }
+                    ].map((item) => (
+                      <label
+                        key={item.role}
+                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-2.5 ${
+                          newAdminRole === item.role
+                            ? 'bg-amber-50/80 border-[#c5a059] shadow-sm'
+                            : 'bg-white border-slate-200 ' + item.border
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="adminRole"
+                          checked={newAdminRole === item.role}
+                          onChange={() => setNewAdminRole(item.role)}
+                          className="mt-1"
+                        />
+                        <div>
+                          <span className="font-bold text-slate-900 block">{item.label}</span>
+                          <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">{item.desc}</span>
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
+                {newAdminRole !== 'content_manager' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50/40">
+                    <div>
+                      <label className="block font-bold mb-1">الفصل المسموح به</label>
+                      <select required value={scopeClassId} onChange={e => setScopeClassId(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 bg-white">
+                        <option value="">اختر الفصل</option>
+                        {scopeOptions.classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">الترم المسموح به</label>
+                      <select value={scopeTermId} onChange={e => setScopeTermId(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 bg-white">
+                        <option value="">كل ترمات الفصل</option>
+                        {scopeOptions.terms.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </div>
+                    {newAdminRole !== 'admin' && <div>
+                      <label className="block font-bold mb-1">المادة المسموح بها</label>
+                      <select required value={scopeSubjectId} onChange={e => setScopeSubjectId(e.target.value)} className="w-full p-2 rounded-lg border border-slate-300 bg-white">
+                        <option value="">اختر المادة</option>
+                        {scopeOptions.subjects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </div>}
+                    <p className="sm:col-span-3 text-[11px] text-slate-500">الصلاحية ستُربط بالفصل والمادة المختارين، وتُفرض من قاعدة البيانات.</p>
+                  </div>
+                )}
+                
+                {/* Form Buttons */}
+                <div className="pt-3 border-t border-[#c5a059]/20 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddAdminForm(false);
+                      setAdminFormError(null);
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer flex items-center gap-2 transition-all"
+                  >
+                    <UserPlus className="w-4 h-4 text-[#c5a059]" />
+                    <span>إرسال دعوة تفعيل الحساب</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Existing Admins List */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h4 className="font-bold text-sm text-[#0c1a30] font-amiri">
+                قائمة الحسابات الإدارية ({adminProfiles.length} مسؤول)
+              </h4>
+              <span className="text-xs text-slate-400">
+                يمكن لكل مسؤول تسجيل الدخول مباشرة عبر شاشة دخول الإدارة
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {adminProfiles.map((adm) => {
+                const isSuper = adm.role === 'super_admin';
+                const roleBadgeInfo = {
+                  super_admin: { label: 'مدير عام النظام', color: 'bg-red-50 text-red-800 border-red-200' },
+                  results_manager: { label: 'مسؤول الكنترول والنتائج', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+                  admin: { label: 'مسؤول شؤون المدرسة', color: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
+                  teacher: { label: 'معلم ألحان وطقوس', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+                  content_manager: { label: 'مسؤول المحتوى', color: 'bg-blue-50 text-blue-800 border-blue-200' },
+                }[adm.role] || { label: adm.role, color: 'bg-slate-50 text-slate-800 border-slate-200' };
+
+                return (
+                  <div
+                    key={adm.id}
+                    className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                      adm.is_active ? 'bg-white border-slate-200' : 'bg-slate-50/70 border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold font-mono text-sm shrink-0 ${
+                        isSuper ? 'bg-[#0c1a30] text-[#c5a059]' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {adm.full_name.slice(0, 2)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">{adm.full_name}</span>
+                          {!adm.is_active && (
+                            <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded font-bold">
+                              معطل
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 mt-0.5 font-mono text-[11px]">
+                          <span>{adm.email}</span>
+                                          <span className="text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px]">تفعيل عبر دعوة البريد الإلكتروني</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <span className={`px-3 py-1 rounded-full font-bold border text-[11px] ${roleBadgeInfo.color}`}>
+                        {roleBadgeInfo.label}
+                      </span>
+
+                      {/* Toggle status */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAdminStatus(adm)}
+                        title={adm.is_active ? 'تعطيل الحساب' : 'تفعيل الحساب'}
+                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                          adm.is_active
+                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                            : 'text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        {adm.is_active ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                      </button>
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAdmin(adm)}
+                        title="حذف الحساب"
+                        className="p-2 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Supabase Hub & SQL Center */}
+      {activeTab === 'supabase' && (
+        <div className="space-y-6">
+          {/* Connection Settings Box */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-[#c5a059]" />
+                <h3 className="font-bold text-sm text-[#0c1a30] font-amiri">
+                  إعدادات الاتصال بـ Supabase (PostgreSQL & Auth & Edge Functions)
+                </h3>
+              </div>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                creds.isConfigured ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {creds.isConfigured ? 'تمت إضافة البيانات' : 'يعمل بالوضع المحلي المدمج'}
+              </span>
+            </div>
+
+            <form onSubmit={handleSaveSupabaseConfig} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    رابط مشروع Supabase (Project URL)
+                  </label>
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={supabaseUrl}
+                    readOnly
+                    placeholder="https://xyzcompany.supabase.co"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    مفتاح الوصول العام (Anon Key)
+                  </label>
+                  <input
+                    type="password"
+                    dir="ltr"
+                    value={supabaseKey}
+                    readOnly
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {connectionTestResult && (
+                <div className={`p-3 rounded-xl flex items-center gap-2 text-xs ${
+                  connectionTestResult.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {connectionTestResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
+                  <span>{connectionTestResult.message}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleTestConnectionNow}
+                  disabled={testingConnection || !supabaseUrl}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {testingConnection ? 'جاري الفحص...' : 'فحص الاتصال فقط'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={testingConnection}
+                  className="px-6 py-2 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer disabled:opacity-50"
+                >
+                  {testingConnection ? 'جاري الفحص والحفظ...' : 'حفظ واختبار الربط'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Setup Guide in Arabic */}
+          <div className="bg-[#faf8f5] rounded-2xl border border-[#c5a059]/40 p-6 space-y-4 text-xs text-slate-700">
+            <h4 className="font-bold text-sm text-[#0c1a30] font-amiri flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#c5a059]" />
+              <span>خطوات تهيئة قاعدة بيانات Supabase الرسمية لمدرسة الألحان:</span>
+            </h4>
+            <ol className="list-decimal list-inside space-y-2 leading-relaxed">
+              <li>سجل دخولك إلى لوحة تحكم <strong>Supabase (supabase.com)</strong> وأنشئ مشروعاً جديداً باسم <code>t-etchrompi-school</code>.</li>
+              <li>انتقل إلى تبويب <strong>SQL Editor</strong>، واضغط على <strong>New Query</strong>.</li>
+              <li>انسخ كود ملف التهيئة أدناه (الموجود أيضاً في <code>supabase/migrations/20261105000000_school_system.sql</code>) والصقه ثم اضغط <strong>RUN</strong>.</li>
+              <li>سيتم إنشاء جميع الجداول الـ 16، والقيود، والفهارس، وسياسات الأمان (RLS).</li>
+              <li>انسخ <strong>Project URL</strong> و <strong>Anon Public Key</strong> من إعدادات <strong>Project Settings &gt; API</strong> وضعهما في الحقول أعلاه.</li>
+            </ol>
+          </div>
+
+          {/* SQL Viewer & Copy */}
+          <div className="bg-[#0c1a30] text-slate-100 rounded-2xl p-6 border-2 border-[#c5a059]/40 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+              <div className="flex items-center gap-2 text-xs font-mono text-[#e0c588]">
+                <Terminal className="w-4 h-4" />
+                <span>ملف SQL Migration الكامل (18 جدول + RLS + قيود الأكواد المانوية)</span>
+              </div>
+              <button
+                onClick={() => copyToClipboard(sqlCodeSample, false)}
+                className="px-3 py-1.5 bg-[#c5a059] hover:bg-[#d4af37] text-[#0c1a30] rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
+              >
+                {copiedSql ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedSql ? 'تم النسخ للحافظة!' : 'نسخ كود الـ SQL'}</span>
+              </button>
+            </div>
+
+            <pre className="p-4 bg-[#07101f] rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-64 border border-slate-800">
+              {sqlCodeSample}
+            </pre>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Reset Database Confirmation Modal */}
+      {confirmResetModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-red-500/30 space-y-4 text-right">
+            <div className="flex items-center gap-3 text-red-600 pb-3 border-b border-red-100">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 font-amiri">استعادة البيانات الافتراضية</h3>
+                <p className="text-xs text-slate-500">تحذير مسح واستعادة البيانات الأولية</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-slate-700 leading-relaxed space-y-2">
+              <p className="font-bold text-red-800">هل أنت متأكد تماماً من رغبتك في هذا الإجراء؟</p>
+              <p>
+                إعادة الضبط التجريبية متوقفة حتى لا يتم حذف أي بيانات حقيقية من النظام.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmResetModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer text-xs"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={executeResetData}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>إغلاق</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Delete Admin Modal */}
+      {adminToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-red-500/30 space-y-4 text-right">
+            <div className="flex items-center gap-3 text-red-600 pb-3 border-b border-red-100">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 font-amiri">تأكيد حذف المسؤول</h3>
+                <p className="text-xs text-slate-500">سيتم إلغاء صلاحية الدخول نهائياً</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-slate-700 leading-relaxed space-y-2">
+              <p>هل أنت متأكد من حذف حساب المسؤول:</p>
+              <div className="p-2.5 bg-white rounded-lg border border-red-200">
+                <div className="font-bold text-sm text-[#0c1a30]">{adminToDelete.full_name}</div>
+                <div className="text-slate-500 font-mono text-xs mt-0.5">{adminToDelete.email}</div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAdminToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer text-xs"
+              >
+                إلغاء التراجع
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteAdmin}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>نعم، احذف الحساب</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
                 {/* Role selection */}
                 <div>
                   <label className="block text-slate-700 font-bold mb-2">
@@ -760,7 +1205,7 @@ export const SettingsAndDatabase: React.FC = () => {
                     className="px-6 py-2.5 bg-[#0c1a30] hover:bg-[#162a4d] text-white font-bold rounded-xl shadow cursor-pointer flex items-center gap-2 transition-all"
                   >
                     <UserPlus className="w-4 h-4 text-[#c5a059]" />
-                    <span>حفظ وتفعيل حساب المسؤول</span>
+                    <span>إرسال دعوة تفعيل الحساب</span>
                   </button>
                 </div>
               </form>
@@ -813,15 +1258,7 @@ export const SettingsAndDatabase: React.FC = () => {
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 mt-0.5 font-mono text-[11px]">
                           <span>{adm.email}</span>
-                          {adm.password ? (
-                            <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
-                              كلمة مرور مخصصة
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px]">
-                              كلمة المرور الافتراضية: 12345678
-                            </span>
-                          )}
+                          <span className="text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px]">تفعيل عبر دعوة البريد الإلكتروني</span>
                         </div>
                       </div>
                     </div>

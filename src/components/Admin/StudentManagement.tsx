@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { dataService } from '../../lib/storage';
+import React, { useEffect, useState } from 'react';
+import { getSupabaseClient } from '../../lib/supabase';
 import { Student, StudentEnrollment } from '../../types/database';
 import { UserPlus, Search, Filter, Edit, Trash2, CheckCircle2, AlertCircle, AlertTriangle, FileSpreadsheet, KeyRound, User, Phone, Shield } from 'lucide-react';
 
@@ -8,13 +8,34 @@ interface StudentManagementProps {
 }
 
 export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExcelImport }) => {
-  const [students, setStudents] = useState<Student[]>(dataService.getStudents());
-  const [enrollments, setEnrollments] = useState<StudentEnrollment[]>(dataService.getEnrollments());
-  
-  const years = dataService.getAcademicYears();
-  const stages = dataService.getStages();
-  const grades = dataService.getGrades();
-  const classes = dataService.getClasses();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [enrollments, setEnrollments] = useState<StudentEnrollment[]>([]);
+  const [years, setYears] = useState<any[]>([]);
+  const [stages, setStages] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+
+  const refreshData = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const [studentsResult, enrollmentsResult, yearsResult, stagesResult, gradesResult, classesResult] = await Promise.all([
+      supabase.from('students').select('*').eq('is_active', true).order('full_name'),
+      supabase.from('student_enrollments').select('*').eq('enrollment_status', 'enrolled'),
+      supabase.from('academic_years').select('*').order('name'),
+      supabase.from('educational_stages').select('*').order('display_order'),
+      supabase.from('grades').select('*').order('display_order'),
+      supabase.from('classes').select('*').order('name'),
+    ]);
+    if (studentsResult.error) setModalError(studentsResult.error.message);
+    setStudents(studentsResult.data ?? []);
+    setEnrollments(enrollmentsResult.data ?? []);
+    setYears(yearsResult.data ?? []);
+    setStages(stagesResult.data ?? []);
+    setGrades(gradesResult.data ?? []);
+    setClasses(classesResult.data ?? []);
+  };
+
+  useEffect(() => { void refreshData(); }, []);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,15 +56,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
   const [formGuardianName, setFormGuardianName] = useState('');
   const [formGuardianPhone, setFormGuardianPhone] = useState('');
   const [formNotes, setFormNotes] = useState('');
-  const [formYearId, setFormYearId] = useState(years.find(y => y.is_active)?.id || years[0]?.id || '');
-  const [formStageId, setFormStageId] = useState(stages[0]?.id || '');
-  const [formGradeId, setFormGradeId] = useState(grades.find(g => g.stage_id === stages[0]?.id)?.id || '');
-  const [formClassId, setFormClassId] = useState(classes[0]?.id || '');
+  const [formYearId, setFormYearId] = useState('');
+  const [formStageId, setFormStageId] = useState('');
+  const [formGradeId, setFormGradeId] = useState('');
+  const [formClassId, setFormClassId] = useState('');
 
-  const refreshData = () => {
-    setStudents(dataService.getStudents());
-    setEnrollments(dataService.getEnrollments());
-  };
+
 
   const openAddModal = () => {
     setEditingStudent(null);
@@ -103,56 +121,47 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     }
   };
 
-  const handleSaveStudent = (e: React.FormEvent) => {
+  const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
-
-    // CRITICAL: Manual code validation
     const code = formCode.trim();
-    if (!code) {
-      setModalError('يجب إدخال كود الطالب يدوياً. النظام يمنع التوليد التلقائي لضمان التوافق مع سجلات المدرسة.');
+    if (!code) { setModalError('يجب إدخال كود الطالب يدوياً.'); return; }
+    if (!formName.trim()) { setModalError('يرجى إدخال اسم الطالب بالكامل.'); return; }
+    if (!formYearId || !formStageId || !formGradeId || !formClassId) {
+      setModalError('اختر العام والمستوى والسنة والفصل قبل حفظ الطالب.');
       return;
     }
 
-    if (!formName.trim()) {
-      setModalError('يرجى إدخال اسم الطالب ثلاثي أو رباعي.');
-      return;
-    }
-
-    const studentId = editingStudent ? editingStudent.id : `stu-${Date.now()}`;
+    const supabase = getSupabaseClient();
+    if (!supabase) { setModalError('تعذر الاتصال بقاعدة بيانات المدرسة.'); return; }
+    const studentId = editingStudent?.id || crypto.randomUUID();
     const studentObj: Student = {
-      id: studentId,
-      student_code: code,
-      full_name: formName.trim(),
-      phone: formPhone.trim(),
-      guardian_name: formGuardianName.trim(),
-      guardian_phone: formGuardianPhone.trim(),
-      notes: formNotes.trim(),
-      is_active: true,
-      created_at: editingStudent ? editingStudent.created_at : new Date().toISOString()
+      id: studentId, student_code: code, full_name: formName.trim(),
+      phone: formPhone.trim(), guardian_name: formGuardianName.trim(),
+      guardian_phone: formGuardianPhone.trim(), notes: formNotes.trim(),
+      is_active: true, created_at: editingStudent?.created_at || new Date().toISOString(),
     };
 
-    // Attempt save to data service (it enforces code uniqueness)
-    const result = dataService.saveStudent(studentObj);
-    if (!result.success) {
-      setModalError(result.error || 'حدث خطأ أثناء حفظ الطالب.');
+    const { error: studentError } = await supabase.from('students').upsert(studentObj);
+    if (studentError) {
+      setModalError(studentError.code === '23505' ? 'كود الطالب مستخدم بالفعل. أدخل كوداً مختلفاً.' : studentError.message);
       return;
     }
 
-    // Save enrollment
     const enrollmentObj: StudentEnrollment = {
-      id: `enr-${studentId}`,
-      student_id: studentId,
-      academic_year_id: formYearId,
-      stage_id: formStageId,
-      grade_id: formGradeId,
-      class_id: formClassId,
-      enrollment_status: 'enrolled',
-      created_at: new Date().toISOString()
+      id: crypto.randomUUID(), student_id: studentId, academic_year_id: formYearId,
+      stage_id: formStageId, grade_id: formGradeId, class_id: formClassId,
+      enrollment_status: 'enrolled', created_at: new Date().toISOString(),
     };
-    dataService.saveEnrollment(enrollmentObj);
+    const { error: enrollmentError } = await supabase.from('student_enrollments').upsert(
+      enrollmentObj, { onConflict: 'student_id,academic_year_id' }
+    );
+    if (enrollmentError) {
+      setModalError('تم حفظ بيانات الطالب لكن تعذر حفظ القيد الدراسي: ' + enrollmentError.message);
+      return;
+    }
 
-    refreshData();
+    await refreshData();
     setIsModalOpen(false);
   };
 
@@ -160,10 +169,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onOpenExce
     setStudentToDelete(student);
   };
 
-  const confirmDeleteStudent = () => {
+  const confirmDeleteStudent = async () => {
     if (!studentToDelete) return;
-    dataService.deleteStudent(studentToDelete.id);
-    refreshData();
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase.from('students').update({ is_active: false }).eq('id', studentToDelete.id);
+    if (error) setModalError('تعذر إيقاف سجل الطالب: ' + error.message);
+    else await refreshData();
     setStudentToDelete(null);
   };
 

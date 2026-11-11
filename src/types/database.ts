@@ -10,17 +10,29 @@ export interface AdminProfile {
   user_id: string;
   full_name: string;
   email: string;
-  password?: string;
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  admin_permissions?: AdminPermission[];
+}
+
+export interface AdminPermission {
+  id: string;
+  admin_profile_id: string;
+  permission_key: 'read_academics' | 'manage_academics' | 'manage_students' | 'manage_results' | 'manage_content' | 'publish_results';
+  academic_year_id?: string | null;
+  stage_id?: string | null;
+  grade_id?: string | null;
+  class_id?: string | null;
+  term_id?: string | null;
+  subject_id?: string | null;
 }
 
 export interface AcademicYear {
   id: string;
   name: string; // e.g., "2025 - 2026"
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -59,6 +71,7 @@ export interface ClassItem {
   name: string; // e.g., "فصل القديس أثناسيوس الرسولي"
   term?: SemesterTerm; // الترم الأول / الترم الثاني / طوال العام
   category?: ClassCategory; // فئة المرحلة: كيجي، ابتدائي، إعدادي، ثانوي، شمامسة، عام
+  term_id?: string;
 }
 
 export interface Student {
@@ -93,6 +106,8 @@ export interface Exam {
   stage_id?: string;
   grade_id?: string;
   term?: SemesterTerm; // الترم الأول أو الثاني
+  term_id?: string;
+  class_id?: string;
   exam_type: ExamType;
   exam_date: string;
   is_published: boolean;
@@ -113,6 +128,7 @@ export interface ExamSubject {
   max_score: number; // e.g., 50 or 100
   pass_score?: number; // e.g., 25 or 50
   display_order: number;
+  class_id?: string;
 }
 
 export interface Result {
@@ -164,6 +180,7 @@ export interface SchoolSettings {
   show_banner: boolean;
   results_disclaimer: string;
   academic_year_id: string;
+  about_text?: string;
   updated_at: string;
 }
 

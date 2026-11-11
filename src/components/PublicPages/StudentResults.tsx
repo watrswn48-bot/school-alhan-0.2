@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
-import { dataService } from '../../lib/storage';
-import { StudentFullResultLookup } from '../../types/database';
+import React, { useEffect, useState } from 'react';
+import { StudentFullResultLookup, SchoolSettings } from '../../types/database';
+import { getSupabaseClient } from '../../lib/supabase';
 import { CopticCross, SchoolSeal } from '../CopticIcons';
 import { Search, Printer, CheckCircle2, AlertCircle, Award, BookOpen, User, Calendar, ShieldCheck } from 'lucide-react';
 
 export const StudentResults: React.FC = () => {
   const [studentCodeInput, setStudentCodeInput] = useState('');
-  const [searchedCode, setSearchedCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultsList, setResultsList] = useState<StudentFullResultLookup[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedExamIndex, setSelectedExamIndex] = useState(0);
 
-  const settings = dataService.getSettings();
+  const [settings, setSettings] = useState<SchoolSettings>({
+    id: '', school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', parish_name: '',
+    dean_name: '', spiritual_supervisor: '', phone_number: '', whatsapp_number: '',
+    email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '',
+    announcement_banner: '', show_banner: false, results_disclaimer: '',
+    academic_year_id: '', updated_at: '',
+  });
 
-  const handleSearch = (codeToSearch?: string) => {
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    supabase.from('school_settings').select('*').limit(1).maybeSingle().then(({ data }) => {
+      if (data) setSettings(prev => ({ ...prev, ...data }));
+    });
+  }, []);
+
+  const handleSearch = async (codeToSearch?: string) => {
     const code = (codeToSearch || studentCodeInput).trim();
     if (!code) {
       setErrorMessage('يرجى إدخال كود الطالب الخاص بك الممنوح لك من إدارة المدرسة.');
@@ -22,22 +35,31 @@ export const StudentResults: React.FC = () => {
       return;
     }
 
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setErrorMessage('خدمة النتائج غير متاحة حالياً. يرجى المحاولة لاحقاً.');
+      setResultsList(null);
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
-    setSearchedCode(code);
-
-    setTimeout(() => {
-      const response = dataService.lookupStudentResults(code);
-      setLoading(false);
-
-      if (!response.success || !response.data || response.data.length === 0) {
-        setErrorMessage(response.error || 'تعذر العثور على نتائج منشورة مطابقة لكود الطالب المدخل.');
-        setResultsList(null);
-      } else {
-        setResultsList(response.data);
-        setSelectedExamIndex(0);
+    setResultsList(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('lookup-student-result', {
+        body: { studentCode: code },
+      });
+      if (error || !data?.success || !Array.isArray(data?.data) || data.data.length === 0) {
+        setErrorMessage(data?.error || 'تعذر العثور على نتائج منشورة مطابقة لكود الطالب المدخل.');
+        return;
       }
-    }, 350);
+      setResultsList(data.data as StudentFullResultLookup[]);
+      setSelectedExamIndex(0);
+    } catch {
+      setErrorMessage('تعذر الاتصال بخدمة النتائج. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const currentResult = resultsList ? resultsList[selectedExamIndex] : null;
@@ -104,24 +126,6 @@ export const StudentResults: React.FC = () => {
                 </>
               )}
             </button>
-          </div>
-
-          {/* Quick Demo Test Codes */}
-          <div className="pt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span className="font-medium text-slate-700">أكواد تجريبية للاختبار السريع:</span>
-            {['ETCH-1001', 'ETCH-1002', 'ETCH-1003', 'ETCH-2001'].map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => {
-                  setStudentCodeInput(code);
-                  handleSearch(code);
-                }}
-                className="font-mono bg-[#faf8f5] hover:bg-[#c5a059]/20 text-[#0c1a30] px-2.5 py-1 rounded-md border border-[#c5a059]/40 transition-colors cursor-pointer"
-              >
-                {code}
-              </button>
-            ))}
           </div>
 
           {/* Privacy & Security Note */}
