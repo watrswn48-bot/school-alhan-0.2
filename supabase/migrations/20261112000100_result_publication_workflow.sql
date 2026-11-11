@@ -134,6 +134,7 @@ USING (
 );
 
 -- Keep one UPDATE policy while allowing managers to save drafts and super admins to publish.
+DROP POLICY IF EXISTS "Scoped admins update result publication" ON public.results;
 DROP POLICY IF EXISTS "Results managers update drafts" ON public.results;
 DROP POLICY IF EXISTS "Super admins publish results" ON public.results;
 
