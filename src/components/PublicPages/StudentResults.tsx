@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { StudentFullResultLookup, SchoolSettings } from '../../types/database';
+import React, { useState } from 'react';
+import { StudentFullResultLookup } from '../../types/database';
 import { getSupabaseClient } from '../../lib/supabase';
+import { useSchoolSettings } from '../../lib/schoolSettingsCache';
 import { CopticCross, SchoolSeal } from '../CopticIcons';
-import { Search, Printer, CheckCircle2, AlertCircle, Award, BookOpen, User, Calendar, ShieldCheck } from 'lucide-react';
+import { Search, Printer, CheckCircle2, AlertCircle, Award, ShieldCheck } from 'lucide-react';
 
 export const StudentResults: React.FC = () => {
   const [studentCodeInput, setStudentCodeInput] = useState('');
@@ -10,22 +11,7 @@ export const StudentResults: React.FC = () => {
   const [resultsList, setResultsList] = useState<StudentFullResultLookup[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedExamIndex, setSelectedExamIndex] = useState(0);
-
-  const [settings, setSettings] = useState<SchoolSettings>({
-    id: '', school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', parish_name: '',
-    dean_name: '', spiritual_supervisor: '', phone_number: '', whatsapp_number: '',
-    email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '',
-    announcement_banner: '', show_banner: false, results_disclaimer: '',
-    academic_year_id: '', updated_at: '',
-  });
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    supabase.from('school_settings').select('*').limit(1).maybeSingle().then(({ data }) => {
-      if (data) setSettings(prev => ({ ...prev, ...data }));
-    });
-  }, []);
+  const { settings } = useSchoolSettings();
 
   const handleSearch = async (codeToSearch?: string) => {
     const code = (codeToSearch || studentCodeInput).trim();
@@ -50,7 +36,16 @@ export const StudentResults: React.FC = () => {
         body: { studentCode: code },
       });
       if (error || !data?.success || !Array.isArray(data?.data) || data.data.length === 0) {
-        setErrorMessage(data?.error || 'تعذر العثور على نتائج منشورة مطابقة لكود الطالب المدخل.');
+        let serverErrorMsg: string | undefined = data?.error;
+        if (!serverErrorMsg && error && typeof (error as any).context?.json === 'function') {
+          try {
+            const errBody = await (error as any).context.json();
+            serverErrorMsg = errBody?.error;
+          } catch {
+            // Ignore JSON parse errors
+          }
+        }
+        setErrorMessage(serverErrorMsg || 'تعذر العثور على نتائج منشورة مطابقة لكود الطالب المدخل.');
         return;
       }
       setResultsList(data.data as StudentFullResultLookup[]);

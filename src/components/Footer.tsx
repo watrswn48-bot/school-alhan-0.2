@@ -1,28 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { CopticCross, CopticDove } from './CopticIcons';
 import { MapPin, Phone, Award, Clock, Home } from 'lucide-react';
 import { PageTab } from './Navbar';
-import { getSupabaseClient } from '../lib/supabase';
+import { useSchoolSettings } from '../lib/schoolSettingsCache';
 
 interface FooterProps { onSelectTab: (tab: PageTab) => void; }
-interface FooterSettings {
-  school_name: string; church_name: string; results_disclaimer: string;
-  dean_name: string; address: string; phone_number: string; logo_url?: string;
-}
 
 export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
-  const [settings, setSettings] = useState<FooterSettings>({
-    school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '',
-    results_disclaimer: 'النتائج المعروضة هي النتائج التي اعتمدتها إدارة المدرسة ونشرتها.',
-    dean_name: '', address: '', phone_number: '', logo_url: '',
-  });
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    supabase.from('school_settings').select('school_name,church_name,results_disclaimer,dean_name,address,phone_number,logo_url')
-      .limit(1).maybeSingle().then(({ data }) => { if (data) setSettings(prev => ({ ...prev, ...data })); });
-  }, []);
+  const { settings, logoLoading } = useSchoolSettings();
 
   return (
     <footer className="bg-[#07101f] text-slate-300 border-t-2 border-[var(--school-accent)]/40 no-print mt-auto">
@@ -32,7 +17,13 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-white border border-[var(--school-accent)] flex items-center justify-center overflow-hidden p-0.5">
-                {settings.logo_url ? <img src={settings.logo_url} alt={settings.school_name} className="w-full h-full object-contain" /> : <CopticCross className="w-6 h-6 text-[var(--school-primary)]" />}
+                {settings.logo_url ? (
+                  <img src={settings.logo_url} alt={settings.school_name} decoding="async" className="w-full h-full object-contain" />
+                ) : logoLoading ? (
+                  <div className="w-full h-full rounded bg-slate-200 animate-pulse" aria-hidden="true" />
+                ) : (
+                  <CopticCross className="w-6 h-6 text-[var(--school-primary)]" />
+                )}
               </div>
               <div><h3 className="text-base font-bold font-amiri text-white">{settings.school_name}</h3><p className="text-xs text-[var(--school-accent)]">{settings.church_name}</p></div>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AdminProfile } from '../../types/database';
-import { dataService } from '../../lib/storage';
-import { CopticCross, SchoolSeal } from '../CopticIcons';
+import { useSchoolSettings } from '../../lib/schoolSettingsCache';
+import { CopticCross } from '../CopticIcons';
 import { AdminOverview } from './AdminOverview';
 import { AcademicManagement } from './AcademicManagement';
 import { StudentManagement } from './StudentManagement';
@@ -40,6 +40,7 @@ export type AdminTab =
   | 'settings';
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBackToWebsite }) => {
+  const { settings } = useSchoolSettings();
   const initialTab: AdminTab = admin.role === 'admin' ? 'students' : admin.role === 'content_manager' ? 'settings' : admin.role === 'teacher' || admin.role === 'results_manager' ? 'results' : 'overview';
   const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -84,8 +85,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ admin, onLogout, onBac
 
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-lg bg-white border border-[var(--school-accent)] flex items-center justify-center overflow-hidden p-0.5">
-              {dataService.getSettings().logo_url ? (
-                <img src={dataService.getSettings().logo_url} alt="شعار المدرسة" className="w-full h-full object-contain mix-blend-multiply" />
+              {settings.logo_url ? (
+                <img src={settings.logo_url} alt="شعار المدرسة" decoding="async" className="w-full h-full object-contain mix-blend-multiply" />
               ) : (
                 <CopticCross className="w-5 h-5 text-[var(--school-primary)]" />
               )}

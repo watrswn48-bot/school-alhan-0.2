@@ -12,6 +12,7 @@ import {
 import { CopticCross } from '../CopticIcons';
 import { getSupabaseClient } from '../../lib/supabase';
 import { dataService } from '../../lib/storage';
+import { optimizeLogoImage, updateSchoolSettingsCache } from '../../lib/schoolSettingsCache';
 
 export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminRole = 'super_admin' }) => {
   useEffect(() => {
@@ -91,14 +92,13 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
     const { data } = await supabase.from('school_settings').select('*').limit(1).maybeSingle();
     if (data) {
       setSettings(prev => ({ ...prev, ...data }));
-      if (data.primary_color) document.documentElement.style.setProperty('--school-primary', data.primary_color);
-      if (data.accent_color) document.documentElement.style.setProperty('--school-accent', data.accent_color);
+      updateSchoolSettingsCache(data as SchoolSettings);
     }
     await dataService.refresh();
-    setSaveMessage('تم حفظ إعدادات المدرسة في قاعدة البيانات.');
+    setSaveMessage('تم حفظ إعدادات المدرسة وتحديث الشعار في الموقع فوراً.');
   };
 
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -108,20 +108,50 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
       return;
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      setSaveMessage('حجم الصورة كبير، يرجى اختيار ملف صورة لا يتعدى 3 ميجابايت.');
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage('حجم الصورة كبير، يرجى اختيار ملف صورة لا يتعدى 5 ميجابايت.');
       setTimeout(() => setSaveMessage(null), 3500);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setSettings(prev => ({ ...prev, logo_url: base64 }));
-      setSaveMessage('تم قراءة الصورة بنجاح وتعيينها كشعار للمدرسة. اضغط «حفظ بيانات المدرسة» لتطبيق التغيير.');
+    try {
+      const { dataUrl, originalBytes, compressedBytes } = await optimizeLogoImage(file, 420);
+      setSettings(prev => ({ ...prev, logo_url: dataUrl }));
+      const origKB = Math.round(originalBytes / 1024);
+      const compKB = Math.round(compressedBytes / 1024);
+      setSaveMessage(`تم ضغط الصورة وتجهيزها بنجاح (${origKB} KB ← ${compKB} KB) لسرعة تحميل فائقة. اضغط «حفظ بيانات المدرسة» لتطبيق التغيير.`);
+      setTimeout(() => setSaveMessage(null), 5000);
+    } catch {
+      setSaveMessage('تعذر قراءة ملف الصورة. تأكد من سلامة الصورة وحاول مرة أخرى.');
       setTimeout(() => setSaveMessage(null), 3500);
-    };
-    reader.readAsDataURL(file);
+    }
+  };
+
+  const handleOptimizeExistingLogo = async () => {
+    if (!settings.logo_url) return;
+    try {
+      const { dataUrl, originalBytes, compressedBytes } = await optimizeLogoImage(settings.logo_url, 420);
+      const updatedSettings = { ...settings, logo_url: dataUrl, updated_at: new Date().toISOString() };
+      setSettings(updatedSettings);
+
+      const supabase = getSupabaseClient();
+      if (supabase && settings.id && /^[0-9a-f-]{36}$/i.test(settings.id)) {
+        const { error } = await supabase
+          .from('school_settings')
+          .update({ logo_url: dataUrl, updated_at: updatedSettings.updated_at })
+          .eq('id', settings.id);
+        if (!error) {
+          updateSchoolSettingsCache(updatedSettings);
+          const origKB = Math.round(originalBytes / 1024);
+          const compKB = Math.round(compressedBytes / 1024);
+          setSaveMessage(`تم ضغط وحفظ اللوجو في قاعدة البيانات بنجاح (${origKB} KB ← ${compKB} KB). سيفتح الموقع واللوجو فوراً لدى الجميع.`);
+          return;
+        }
+      }
+      setSaveMessage('تم تصغير اللوجو. اضغط «حفظ» لتأكيد التعديل في قاعدة البيانات.');
+    } catch {
+      setSaveMessage('تعذر ضغط اللوجو الحالي. يمكنك رفع الصورة من جديد وسيتم ضغطها تلقائياً.');
+    }
   };
 
   const handleRemoveLogo = () => {
@@ -527,6 +557,21 @@ export const SettingsAndDatabase: React.FC<{ adminRole?: UserRole }> = ({ adminR
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-slate-900 text-right focus:ring-2 focus:ring-[#c5a059] focus:outline-none text-xs"
                     />
                   </div>
+
+                  {settings.logo_url && settings.logo_url.startsWith('data:image/') && settings.logo_url.length > 100000 && (
+                    <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <span className="text-amber-950 font-medium">
+                        حجم اللوجو الحالي كبير ({Math.round(settings.logo_url.length / 1024)} KB) مما يؤخر أول تحميل. اضغط لتصغيره (~30 KB) دون فقدان الجودة:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleOptimizeExistingLogo}
+                        className="px-3 py-1.5 bg-[#0c1a30] hover:bg-[#162a4d] text-[#e0c588] rounded-lg font-bold whitespace-nowrap cursor-pointer"
+                      >
+                        ضغط وتسريع اللوجو الآن
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

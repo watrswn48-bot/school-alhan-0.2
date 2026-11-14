@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Award, Bell, CalendarDays, BookOpen, ArrowLeft, MapPin } from 'lucide-react';
 import { getSupabaseClient } from '../../lib/supabase';
-import { SchoolSettings } from '../../types/database';
+import { useSchoolSettings } from '../../lib/schoolSettingsCache';
 
 interface Announcement {
   id: string; title: string; content: string; category?: string; published_at?: string;
@@ -14,16 +14,8 @@ interface HomePageProps {
   onOpenResults: () => void;
 }
 
-const fallbackSettings: SchoolSettings & { about_text?: string } = {
-  id: '', school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', parish_name: '',
-  dean_name: '', spiritual_supervisor: '', phone_number: '', whatsapp_number: '',
-  email: '', address: '', logo_url: '', facebook_url: '', youtube_url: '',
-  announcement_banner: '', show_banner: false, results_disclaimer: '',
-  academic_year_id: '', updated_at: '', about_text: '',
-};
-
 export const HomePage: React.FC<HomePageProps> = ({ onOpenResults }) => {
-  const [settings, setSettings] = useState(fallbackSettings);
+  const { settings, logoLoading } = useSchoolSettings();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +24,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenResults }) => {
     const supabase = getSupabaseClient();
     if (!supabase) { setLoading(false); return; }
     Promise.all([
-      supabase.from('school_settings').select('*').limit(1).maybeSingle(),
       supabase.from('announcements').select('id,title,content,category,published_at').eq('is_published', true).order('published_at', { ascending: false }).limit(5),
       supabase.from('events').select('id,title,description,event_date,location').eq('is_published', true).order('event_date', { ascending: true }).limit(5),
-    ]).then(([settingsResult, announcementsResult, eventsResult]) => {
-      if (settingsResult.data) setSettings(prev => ({ ...prev, ...settingsResult.data }));
+    ]).then(([announcementsResult, eventsResult]) => {
       setAnnouncements(announcementsResult.data ?? []);
       setEvents(eventsResult.data ?? []);
       setLoading(false);
@@ -67,7 +57,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenResults }) => {
             </div>
           </div>
           <div className="mx-auto w-52 h-52 sm:w-64 sm:h-64 rounded-[2rem] bg-white/10 border border-[var(--school-accent)]/50 p-5 flex items-center justify-center shadow-2xl">
-            {settings.logo_url ? <img src={settings.logo_url} alt={settings.school_name} className="w-full h-full object-contain" /> : <BookOpen className="w-28 h-28 text-[var(--school-accent)]" />}
+            {settings.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt={settings.school_name}
+                decoding="async"
+                fetchPriority="high"
+                className="w-full h-full object-contain"
+              />
+            ) : logoLoading ? (
+              <div className="w-full h-full rounded-2xl bg-white/10 animate-pulse flex items-center justify-center">
+                <BookOpen className="w-16 h-16 text-[var(--school-accent)]/40" />
+              </div>
+            ) : (
+              <BookOpen className="w-28 h-28 text-[var(--school-accent)]" />
+            )}
           </div>
         </div>
       </section>

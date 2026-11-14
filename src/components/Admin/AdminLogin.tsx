@@ -3,6 +3,7 @@ import { CopticCross } from '../CopticIcons';
 import { AdminProfile } from '../../types/database';
 import { getSupabaseClient } from '../../lib/supabase';
 import { dataService } from '../../lib/storage';
+import { useSchoolSettings } from '../../lib/schoolSettingsCache';
 import { Lock, Mail, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface AdminLoginProps {
@@ -11,6 +12,7 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackToWebsite }) => {
+  const { settings } = useSchoolSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
       <div className="max-w-md w-full bg-white rounded-3xl border-2 border-[#c5a059]/40 shadow-xl p-8 space-y-6 text-right">
         <div className="text-center space-y-2">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-white border-2 border-[#c5a059] flex items-center justify-center p-2 shadow-md overflow-hidden">
-            <CopticCross className="w-10 h-10 text-[#0c1a30]" />
+            {settings.logo_url ? (
+              <img src={settings.logo_url} alt={settings.school_name} decoding="async" className="w-full h-full object-contain mix-blend-multiply" />
+            ) : (
+              <CopticCross className="w-10 h-10 text-[#0c1a30]" />
+            )}
           </div>
           <h2 className="text-2xl font-bold font-amiri text-[#0c1a30]">بوابة الإدارة والكنترول</h2>
           <p className="text-xs text-slate-500">تسجيل الدخول الآمن بحساب الإدارة المعتمد</p>

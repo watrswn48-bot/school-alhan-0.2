@@ -9,8 +9,10 @@ import { AdminBootstrap } from './components/Admin/AdminBootstrap';
 import { AdminProfile } from './types/database';
 import { getSupabaseClient } from './lib/supabase';
 import { dataService } from './lib/storage';
+import { useSchoolSettings } from './lib/schoolSettingsCache';
 
 export default function App() {
+  useSchoolSettings();
   const [currentTab, setCurrentTab] = useState<PageTab>(() => {
     const path = window.location.pathname.replace(/\/+$/, '');
     if (path.endsWith('/admin/setup')) return 'bootstrap';
@@ -51,18 +53,6 @@ export default function App() {
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { void loadAdmin(session?.user.id); });
     return () => { mounted = false; listener.subscription.unsubscribe(); };
-  }, []);
-
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    supabase.from('school_settings').select('primary_color,accent_color').limit(1).maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        if (data.primary_color) document.documentElement.style.setProperty('--school-primary', data.primary_color);
-        if (data.accent_color) document.documentElement.style.setProperty('--school-accent', data.accent_color);
-      });
   }, []);
 
   const handleAdminLogout = async () => {

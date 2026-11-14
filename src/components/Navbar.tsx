@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { CopticCross } from './CopticIcons';
 import { Award, Home } from 'lucide-react';
-import { getSupabaseClient } from '../lib/supabase';
+import { useSchoolSettings } from '../lib/schoolSettingsCache';
 
 export type PageTab = 'home' | 'results' | 'admin' | 'bootstrap';
 interface NavbarProps {
@@ -10,16 +10,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onSelectTab }) => {
-  const [settings, setSettings] = useState<{ school_name: string; church_name: string; logo_url?: string }>({
-    school_name: 'مدرسة تي اتشرومبي للألحان', church_name: '', logo_url: '',
-  });
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    supabase.from('school_settings').select('school_name,church_name,logo_url').limit(1).maybeSingle()
-      .then(({ data }) => { if (data) setSettings(prev => ({ ...prev, ...data })); });
-  }, []);
+  const { settings, logoLoading } = useSchoolSettings();
 
   return (
     <header className="sticky top-0 z-50 bg-[var(--school-primary)] text-slate-100 border-b border-[var(--school-accent)]/30 shadow-lg no-print">
@@ -30,7 +21,19 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onSelectTab }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-20 py-3 flex items-center justify-between gap-4">
         <button onClick={() => onSelectTab('home')} className="flex items-center gap-3.5 text-right text-inherit group cursor-pointer">
           <div className="w-12 h-12 rounded-xl bg-white border-2 border-[var(--school-accent)] flex items-center justify-center p-1 text-[var(--school-primary)] shadow-sm overflow-hidden">
-            {settings.logo_url ? <img src={settings.logo_url} alt={settings.school_name} className="w-full h-full object-contain" /> : <CopticCross className="w-7 h-7" />}
+            {settings.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt={settings.school_name}
+                decoding="async"
+                fetchPriority="high"
+                className="w-full h-full object-contain"
+              />
+            ) : logoLoading ? (
+              <div className="w-full h-full rounded-lg bg-slate-200 animate-pulse" aria-hidden="true" />
+            ) : (
+              <CopticCross className="w-7 h-7" />
+            )}
           </div>
           <div>
             <div className="text-lg sm:text-xl font-bold font-amiri text-white">{settings.school_name}</div>
